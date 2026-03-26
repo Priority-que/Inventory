@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: inventory-back
+  profiles:
+    active: dev
+
+server:
+  port: 8080
