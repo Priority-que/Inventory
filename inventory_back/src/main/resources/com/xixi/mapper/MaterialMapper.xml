@@ -1,0 +1,28 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.MaterialMapper">
+    <select id="getMaterialPage" resultType="com.xixi.pojo.vo.Material.MaterialPageVo">
+        select id,code,name,specification,unit,category_name,safety_number,
+               upper_number,update_time,status,remark,create_time,update_time,deleted
+        from material
+        where deleted = 0
+        <where>
+            <if test="q.code != null and q.code !='' ">
+                and code like concat('%',#{q.code},'%')
+            </if>
+            <if test="q.name !=null and q.name != ''">
+                and name like concat('%',#{q.name},'%')
+            </if>
+            <if test="q.specification !=null and q.specification !=''">
+                and specification like concat('%',#{q.specification},'%')
+            </if>
+            <if test="q.safetyNumberBegin !=null">
+                and safety_number >= #{q.safetyNumberBegin}
+            </if>
+            <if test="q.upperNumberBegin != null">
+                and upper_number >= #{q.upperNumberBegin}
+            </if>
+        </where>
+    </select>
+</mapper>
