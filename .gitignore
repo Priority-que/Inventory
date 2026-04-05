@@ -1,0 +1,35 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Java / Maven
+target/
+**/target/
+*.class
+
+# Spring Boot
+*.pid
+*.seed
+*.pid.lock
+
+# Frontend
+node_modules/
+dist/
+build/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
