@@ -2,7 +2,7 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.xixi.mapper.MaterialMapper">
-    <select id="getMaterialPage" resultType="com.xixi.pojo.vo.Material.MaterialPageVo">
+    <select id="getMaterialPage" resultType="com.xixi.pojo.vo.material.MaterialPageVO">
         select id,code,name,specification,unit,category_name,safety_number,
                upper_number,update_time,status,remark,create_time,update_time,deleted
         from material

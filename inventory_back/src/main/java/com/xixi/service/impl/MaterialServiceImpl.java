@@ -7,7 +7,7 @@ import com.xixi.entity.Material;
 import com.xixi.mapper.MaterialMapper;
 import com.xixi.pojo.dto.material.MaterialDTO;
 import com.xixi.pojo.query.material.MaterialPageQuery;
-import com.xixi.pojo.vo.Material.MaterialPageVo;
+import com.xixi.pojo.vo.material.MaterialPageVO;
 import com.xixi.pojo.vo.Result;
 import com.xixi.service.MaterialService;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +21,11 @@ public class MaterialServiceImpl implements MaterialService {
     private final MaterialMapper materialMapper;
 
     @Override
-    public IPage<MaterialPageVo> getMaterialPage(MaterialPageQuery materialPageQuery) {
+    public IPage<MaterialPageVO> getMaterialPage(MaterialPageQuery materialPageQuery) {
         Integer pageNum = materialPageQuery.getPageNum();
         Integer pageSize = materialPageQuery.getPageSize();
-        IPage<MaterialPageVo> materialPageVoIPage = new Page<>(pageNum, pageSize);
-        IPage<MaterialPageVo> page = materialMapper.getMaterialPage(materialPageVoIPage, materialPageQuery);
+        IPage<MaterialPageVO> materialPageVoIPage = new Page<>(pageNum, pageSize);
+        IPage<MaterialPageVO> page = materialMapper.getMaterialPage(materialPageVoIPage, materialPageQuery);
         return page;
     }
 

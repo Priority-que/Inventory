@@ -1,10 +1,9 @@
 package com.xixi.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.xixi.entity.Material;
 import com.xixi.pojo.dto.material.MaterialDTO;
 import com.xixi.pojo.query.material.MaterialPageQuery;
-import com.xixi.pojo.vo.Material.MaterialPageVo;
+import com.xixi.pojo.vo.material.MaterialPageVO;
 import com.xixi.pojo.vo.Result;
 import com.xixi.service.MaterialService;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,7 @@ public class MaterialController {
     private final MaterialService materialService;
     @GetMapping("/getMaterialPage")
     public Result getMaterialPage(MaterialPageQuery materialPageQuery){
-        IPage<MaterialPageVo> materialPage = materialService.getMaterialPage(materialPageQuery);
+        IPage<MaterialPageVO> materialPage = materialService.getMaterialPage(materialPageQuery);
         return Result.success(materialPage);
     }
     @PostMapping("/addMaterial")

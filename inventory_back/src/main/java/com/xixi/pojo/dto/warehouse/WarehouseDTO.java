@@ -1,4 +1,4 @@
-package com.xixi.pojo.vo.Material;
+package com.xixi.pojo.dto.warehouse;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -6,11 +6,10 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-public class MaterialPageVo implements Serializable {
+public class WarehouseDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)
@@ -20,15 +19,11 @@ public class MaterialPageVo implements Serializable {
 
     private String name;
 
-    private String specification;
+    private String address;
 
-    private String unit;
+    private String managerName;
 
-    private String categoryName;
-
-    private BigDecimal safetyNumber;
-
-    private BigDecimal upperNumber;
+    private String managerPhone;
 
     private String status;
 
