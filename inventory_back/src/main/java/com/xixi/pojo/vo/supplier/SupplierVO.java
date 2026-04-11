@@ -1,6 +1,8 @@
-package com.xixi.pojo.dto.supplier;
+package com.xixi.pojo.vo.supplier;
 
-public class SupplierDTO {
+import java.time.LocalDateTime;
+
+public class SupplierVO {
     private Long id;
 
     private Long userId;
@@ -19,5 +21,15 @@ public class SupplierDTO {
 
     private  String licenseNo;
 
+    private  Integer fileRound;
+
+    private  String status;
+
+    private  String reviewNote;
+
     private  String remark;
+
+    private LocalDateTime createTime;
+
+    private  LocalDateTime updateTime;
 }

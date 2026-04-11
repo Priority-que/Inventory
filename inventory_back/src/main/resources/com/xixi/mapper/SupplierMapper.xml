@@ -1,0 +1,29 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.SupplierMapper">
+    <select id="getSupplierPage" resultType="com.xixi.pojo.vo.supplier.SupplierVO">
+        select id,user_id,code,name,contact_name,contact_phone,email,address,
+               license_no,file_round,status,submit_time,review_time,review_user_id,
+               review_note,remark,create_time,update_time,deleted
+        from supplier
+        where deleted = 0
+        <where>
+            <if test="q.code!=null and q.code!=''">
+                and code like concat('%',#{q.code},'%')
+            </if>
+            <if test="q.name!=null and q.name!=''">
+                and name like concat('%',#{q.name},'%')
+            </if>
+            <if test="q.contactName!=null and q.contactName!=''">
+                and q.contactName like concat('%',#{q.contactName},'%')
+            </if>
+            <if test="q.contactPhone!=null and q.contactPhone!=''">
+                and q.contactPhone like concat('%',#{q.contactPhone},'%')
+            </if>
+            <if test="q.status != null and q.status != ''">
+                and status = #{q.status}
+            </if>
+        </where>
+    </select>
+</mapper>
