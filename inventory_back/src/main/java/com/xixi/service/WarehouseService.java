@@ -4,12 +4,12 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xixi.pojo.dto.warehouse.WarehouseDTO;
 import com.xixi.pojo.query.warehouse.WarehousePageQuery;
 import com.xixi.pojo.vo.Result;
-import com.xixi.pojo.vo.warehouse.WarehouseVO;
+import com.xixi.pojo.vo.warehouse.WarehousePageVO;
 
 import java.util.List;
 
 public interface WarehouseService {
-    IPage<WarehouseVO> getWarehousePage(WarehousePageQuery warehousePageQuery);
+    IPage<WarehousePageVO> getWarehousePage(WarehousePageQuery warehousePageQuery);
 
     Result addWarehouse(WarehouseDTO warehouseDTO);
 

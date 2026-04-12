@@ -1,4 +1,4 @@
-package com.xixi.pojo.vo.warehouse;
+package com.xixi.pojo.dto.purchase;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -6,24 +6,33 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
-public class WarehouseVO implements Serializable {
+public class PurchaseRequestDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String code;
+    private String requestNo;
 
-    private String name;
+    private String title;
 
-    private String address;
+    private Long applicantId;
 
-    private String managerName;
+    private String dept;
 
-    private String managerPhone;
+    private LocalDate expectedDate;
+
+    private LocalDateTime submitTime;
+
+    private Long reviewUserId;
+
+    private LocalDateTime reviewTime;
+
+    private String reviewNote;
 
     private String status;
 

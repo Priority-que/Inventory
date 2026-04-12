@@ -6,7 +6,6 @@
         select id,code,name,specification,unit,category_name,safety_number,
                upper_number,update_time,status,remark,create_time,update_time,deleted
         from material
-        where deleted = 0
         <where>
             <if test="q.code != null and q.code !='' ">
                 and code like concat('%',#{q.code},'%')
@@ -23,6 +22,7 @@
             <if test="q.upperNumberBegin != null">
                 and upper_number >= #{q.upperNumberBegin}
             </if>
+            and deleted=0
         </where>
     </select>
 </mapper>

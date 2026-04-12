@@ -8,7 +8,7 @@ import com.xixi.mapper.WarehouseMapper;
 import com.xixi.pojo.dto.warehouse.WarehouseDTO;
 import com.xixi.pojo.query.warehouse.WarehousePageQuery;
 import com.xixi.pojo.vo.Result;
-import com.xixi.pojo.vo.warehouse.WarehouseVO;
+import com.xixi.pojo.vo.warehouse.WarehousePageVO;
 import com.xixi.service.WarehouseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,9 +21,9 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final WarehouseMapper warehouseMapper;
 
     @Override
-    public IPage<WarehouseVO> getWarehousePage(WarehousePageQuery warehousePageQuery) {
-        IPage<WarehouseVO> warehouseVOIPage =new Page<>(warehousePageQuery.getPageNum(), warehousePageQuery.getPageSize());
-        IPage<WarehouseVO> page = warehouseMapper.getWarehousePage(warehouseVOIPage,warehousePageQuery);
+    public IPage<WarehousePageVO> getWarehousePage(WarehousePageQuery warehousePageQuery) {
+        IPage<WarehousePageVO> warehouseVOIPage =new Page<>(warehousePageQuery.getPageNum(), warehousePageQuery.getPageSize());
+        IPage<WarehousePageVO> page = warehouseMapper.getWarehousePage(warehouseVOIPage,warehousePageQuery);
         return page;
     }
 

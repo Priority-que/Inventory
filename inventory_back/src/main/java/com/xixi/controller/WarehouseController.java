@@ -1,11 +1,10 @@
 package com.xixi.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.xixi.entity.Warehouse;
 import com.xixi.pojo.dto.warehouse.WarehouseDTO;
 import com.xixi.pojo.query.warehouse.WarehousePageQuery;
 import com.xixi.pojo.vo.Result;
-import com.xixi.pojo.vo.warehouse.WarehouseVO;
+import com.xixi.pojo.vo.warehouse.WarehousePageVO;
 import com.xixi.service.WarehouseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +18,7 @@ public class WarehouseController {
     private final WarehouseService warehouseService;
     @GetMapping("/getWarehousePage")
     public Result getWarehousePage(WarehousePageQuery warehousePageQuery) {
-        IPage<WarehouseVO> iPage = warehouseService.getWarehousePage(warehousePageQuery);
+        IPage<WarehousePageVO> iPage = warehouseService.getWarehousePage(warehousePageQuery);
         return Result.success(iPage);
     }
     @PostMapping("/addWarehouse")

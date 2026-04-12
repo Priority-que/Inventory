@@ -2,7 +2,7 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.xixi.mapper.WarehouseMapper">
-    <select id="getWarehousePage" resultType="com.xixi.pojo.vo.warehouse.WarehouseVO">
+    <select id="getWarehousePage" resultType="com.xixi.pojo.vo.warehouse.WarehousePageVO">
         select * from warehouse
         <where>
             <if test="q.code != null and q.code != ''">

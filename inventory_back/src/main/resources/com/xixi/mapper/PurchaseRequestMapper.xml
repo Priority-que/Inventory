@@ -1,0 +1,28 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.PurchaseRequestMapper">
+    <select id="getPurchaseRequestPage" resultType="com.xixi.pojo.vo.purchase.PurchaseRequestPageVO">
+        select pr.*,au.name as applicantName,ru.name as reviewUserName
+        from purchase_request pr
+        left join user au on pr.applicant_id = au.id
+        left join user ru on pr.review_user_id = ru.id
+        <where>
+            <if test="q.requestNo!=null and q.requestNo!='' ">
+                and pr.request_no like concat('%',#{q.requestNo},'%')
+            </if>
+            <if test="q.title != null and q.title != ''">
+                and pr.title like concat('%',#{q.title},'%')
+            </if>
+            <if test="q.dept != null and q.dept != ''">
+                and pr.dept like concat('%',#{q.requestNo},'%')
+            </if>
+            <if test="q.submitTimeBegin !=null and q.submitTimeEnd !=null">
+                and pr.submit_time between #{q.submitTimeBegin} and #{q.submitTimeEnd}
+            </if>
+            <if test="q.status !=null and q.status != ''">
+                and pr.status like concat('%',#{q.status},'%')
+            </if>
+        </where>
+    </select>
+</mapper>
