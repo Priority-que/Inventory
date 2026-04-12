@@ -1,6 +1,15 @@
 package com.xixi.pojo.dto.supplier;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import lombok.Data;
+
+@Data
 public class SupplierDTO {
+    private  static  final long serialVersionUID = 1L;
+
+    @TableId(type= IdType.AUTO)
     private Long id;
 
     private Long userId;
@@ -20,4 +29,7 @@ public class SupplierDTO {
     private  String licenseNo;
 
     private  String remark;
+
+    @TableLogic
+    private Integer deleted;
 }
