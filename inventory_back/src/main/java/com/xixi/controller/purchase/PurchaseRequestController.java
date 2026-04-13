@@ -43,6 +43,14 @@ public class PurchaseRequestController {
     public Result withdrawPurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
         return purchaseRequestService.withdrawPurchaseRequest(purchaseRequestDTO);
     }
+    @PutMapping("/approvePurchaseRequest")
+    public Result approvePurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
+        return purchaseRequestService.approvePurchaseRequest(purchaseRequestDTO);
+    }
+    @PutMapping("/rejectPurchaseRequest")
+    public Result rejectPurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
+        return purchaseRequestService.rejectPurchaseRequest(purchaseRequestDTO);
+    }
     @DeleteMapping("/deletePurchaseRequest/{ids}")
     public Result deletePurchaseRequest(@PathVariable List<Integer> ids) {
         return purchaseRequestService.deletePurchaseRequest(ids);

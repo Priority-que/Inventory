@@ -24,4 +24,8 @@ public interface PurchaseRequestService {
     Result submitPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);
 
     Result withdrawPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);
+
+    Result approvePurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);
+
+    Result rejectPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);
 }

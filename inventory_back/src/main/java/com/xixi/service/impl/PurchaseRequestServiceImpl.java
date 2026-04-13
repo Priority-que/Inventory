@@ -18,6 +18,7 @@ import com.xixi.service.PurchaseRequestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -152,6 +153,79 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         purchaseRequestReview.setOperateTime(LocalDateTime.now());
         purchaseRequestReviewService.saveReview(purchaseRequestReview);
         return Result.success("撤回申请单成功！");
+    }
+    @Transactional
+    @Override
+    public Result approvePurchaseRequest(PurchaseRequestDTO purchaseRequestDTO) {
+        if(purchaseRequestDTO.getId() == null){
+            return Result.error("采购申请单Id不能为空！");
+        }
+        PurchaseRequest purchaseRequest = purchaseRequestMapper.findPurchaseRequestById(purchaseRequestDTO.getId());
+        if(purchaseRequest == null) {
+            return Result.error("采购申请单不存在！");
+        }
+        if(!"PENDING_APPROVAL".equals(purchaseRequest.getStatus())) {
+            return Result.error("采购申请单状态不是审核中！");
+        }
+        if(purchaseRequestDTO.getReviewNote()== null){
+            return Result.error("审核意见为空");
+        }
+        purchaseRequest.setStatus("APPROVED");
+        //TODO 审核ID还没有完善，后续登录认证完成再开发
+        purchaseRequest.setReviewUserId(11L);
+        purchaseRequest.setReviewTime(LocalDateTime.now());
+        purchaseRequest.setReviewNote(purchaseRequestDTO.getReviewNote());
+        if (purchaseRequestMapper.updateById(purchaseRequest) <= 0) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return Result.error("审核采购申请单失败");
+        }
+        PurchaseRequestReview purchaseRequestReview = new PurchaseRequestReview();
+        purchaseRequestReview.setRequestId(purchaseRequest.getId());
+        purchaseRequestReview.setActionType("APPROVE");
+        purchaseRequestReview.setFromStatus("PENDING_APPROVAL");
+        purchaseRequestReview.setToStatus("APPROVED");
+        //TODO 审核ID还没有完善，后续登录认证完成再开发
+        purchaseRequestReview.setOperatorId(purchaseRequest.getReviewUserId());
+        purchaseRequestReview.setOperatorName("鸡哥");
+        purchaseRequestReview.setOperateNote(purchaseRequestDTO.getReviewNote());
+        purchaseRequestReview.setOperateTime(LocalDateTime.now());
+        purchaseRequestReviewService.saveReview(purchaseRequestReview);
+        return Result.success("审核采购申请单成功");
+    }
+    @Transactional
+    @Override
+    public Result rejectPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO) {
+        if(purchaseRequestDTO.getId() == null){
+            return Result.error("采购申请单Id不能为空！");
+        }
+        PurchaseRequest purchaseRequest = purchaseRequestMapper.findPurchaseRequestById(purchaseRequestDTO.getId());
+        if(purchaseRequest == null) {
+            return Result.error("采购申请单不存在！");
+        }
+        if(!"PENDING_APPROVAL".equals(purchaseRequest.getStatus())) {
+            return Result.error("采购申请单状态不是审核中！");
+        }
+        purchaseRequest.setStatus("REJECTED");
+        //TODO 审核ID还没有完善，后续登录认证完成再开发
+        purchaseRequest.setReviewUserId(11L);
+        purchaseRequest.setReviewTime(LocalDateTime.now());
+        purchaseRequest.setReviewNote(purchaseRequestDTO.getReviewNote());
+        if (purchaseRequestMapper.updateById(purchaseRequest) <= 0) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return Result.error("审核采购申请单失败");
+        }
+        PurchaseRequestReview purchaseRequestReview = new PurchaseRequestReview();
+        purchaseRequestReview.setRequestId(purchaseRequest.getId());
+        purchaseRequestReview.setActionType("REJECT");
+        purchaseRequestReview.setFromStatus("PENDING_APPROVAL");
+        purchaseRequestReview.setToStatus("REJECTED");
+        //TODO 审核ID还没有完善，后续登录认证完成再开发
+        purchaseRequestReview.setOperatorId(purchaseRequest.getReviewUserId());
+        purchaseRequestReview.setOperatorName("鸡哥");
+        purchaseRequestReview.setOperateNote(purchaseRequestDTO.getReviewNote());
+        purchaseRequestReview.setOperateTime(LocalDateTime.now());
+        purchaseRequestReviewService.saveReview(purchaseRequestReview);
+        return Result.success("审核采购申请单成功");
     }
 
     private String generateRequestNo(Long requestId) {
