@@ -25,4 +25,11 @@
             </if>
         </where>
     </select>
+    <select id="lockById" resultType="Long">
+        select id
+        from purchase_request
+        where id = #{id}
+          and deleted = 0
+            for update
+    </select>
 </mapper>

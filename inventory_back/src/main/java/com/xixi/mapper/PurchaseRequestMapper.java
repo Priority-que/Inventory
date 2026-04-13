@@ -15,4 +15,5 @@ public interface PurchaseRequestMapper extends BaseMapper<PurchaseRequest> {
     IPage<PurchaseRequestPageVO> getPurchaseRequestPage(IPage<PurchaseRequestPageVO> purchaseRequestPageVoIPage, @Param("q") PurchaseRequestQuery purchaseRequestQuery);
     @Select("select * from purchase_request where id = #{id}")
     PurchaseRequestVO getPurchaseRequestById(Integer id);
+    Long lockById(Long id);
 }
