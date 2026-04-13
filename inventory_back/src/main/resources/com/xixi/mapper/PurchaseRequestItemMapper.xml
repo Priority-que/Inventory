@@ -2,22 +2,12 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.xixi.mapper.PurchaseRequestItemMapper">
-    <select id="getPurchaseRequestItemPage" resultType="com.xixi.pojo.vo.purchase.PurchaseRequestItemVO">
+    <select id="getPurchaseRequestItemListByRequestId" resultType="com.xixi.pojo.vo.purchase.PurchaseRequestItemVO">
         select pri.id,pri.request_id,pri.material_id,pri.material_code,pri.material_name,pri.specification,
                pri.unit,pri.request_number,pri.sort_number,pri.remark,pri.create_time,pri.update_time,pri.deleted,
                pr.request_no requestNo,pr.title requestTitle
         from purchase_request_item pri left join purchase_request pr on pr.id=pri.request_id
-        <where>
-            <if test="q.materialCode != null and q.materialCode != ''">
-                and pri.material_code like concat('%',#{q.materialCode},'%')
-            </if>
-            <if test="q.materialName != null and q.materialName != ''">
-                and pri.material_name like concat('%',#{q.materialName},'%')
-            </if>
-            <if test="q.requestNumberBegin !=null and q.requestNumberEnd !=null">
-                and pri.request_number between #{q.requestNumberBegin} and #{q.requestNumberEnd}
-            </if>
-        </where>
+        where pri.request_id = #{requestId} and pri.deleted = 0
         order by pri.sort_number asc, pri.id asc
     </select>
     <select id="getPurchaseRequestItemById" resultType="com.xixi.pojo.vo.purchase.PurchaseRequestItemVO">
@@ -25,7 +15,7 @@
                pri.unit,pri.request_number,pri.sort_number,pri.remark,pri.create_time,pri.update_time,pri.deleted,
                pr.request_no requestNo,pr.title requestTitle
         from purchase_request_item pri left join purchase_request pr on pr.id=pri.request_id
-        where pri.id = #{id}
+        where pri.id = #{id} and pri.deleted = 0
     </select>
     <select id="getMaxSortNumberByRequestId" resultType="int">
         select max(sort_number) from purchase_request_item where request_id = #{requestId} and deleted = 0

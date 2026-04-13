@@ -13,11 +13,15 @@ import java.util.List;
 public interface PurchaseRequestService {
     IPage<PurchaseRequestPageVO> getPurchaseRequestPage(PurchaseRequestQuery purchaseRequestQuery);
 
-    PurchaseRequestVO getPurchaseRequestById(Integer id);
+    PurchaseRequestVO getPurchaseRequestById(Long id);
 
     Result addPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);
 
     Result updatePurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);
 
     Result deletePurchaseRequest(List<Integer> ids);
+
+    Result submitPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);
+
+    Result withdrawPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);
 }

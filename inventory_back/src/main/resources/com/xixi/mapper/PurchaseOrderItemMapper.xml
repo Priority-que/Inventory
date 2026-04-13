@@ -1,0 +1,12 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.PurchaseOrderItemMapper">
+    <select id="getPurchaseOrderItemByOrderId" resultType="com.xixi.pojo.vo.purchase.PurchaseOrderItemVO">
+        select id,order_id,request_item_id,material_id,material_code,
+               material_name,specification,unit,order_number,unit_price,remark,
+               line_amount,arrived_number,inbound_number,sort_number,remark,create_time,
+               update_time,deleted
+        from purchase_order_item where order_id=#{orderId} and deleted = 0 order by sort_number asc, id asc
+    </select>
+</mapper>

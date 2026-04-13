@@ -2,10 +2,8 @@ package com.xixi.controller.purchase;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xixi.pojo.dto.purchase.PurchaseRequestItemDTO;
-import com.xixi.pojo.query.purchase.PurchaseRequestItemQuery;
 import com.xixi.pojo.vo.Result;
 import com.xixi.pojo.vo.purchase.PurchaseRequestItemVO;
-import com.xixi.pojo.vo.purchase.PurchaseRequestPageVO;
 import com.xixi.service.PurchaseRequestItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -17,13 +15,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PurchaseRequestItemController {
     private final PurchaseRequestItemService purchaseRequestItemService;
-    @GetMapping("/getPurchaseRequestItemPage")
-    public Result getPurchaseRequestItemPage(PurchaseRequestItemQuery purchaseRequestItemQuery) {
-        IPage<PurchaseRequestItemVO> page = purchaseRequestItemService.getPurchaseRequestItemPage(purchaseRequestItemQuery);
-        return Result.success(page);
+    @GetMapping("/getPurchaseRequestItemByRequestId/{id}")
+    public Result getPurchaseRequestItemByRequestId(@PathVariable Long id) {
+        List<PurchaseRequestItemVO> purchaseRequestItemVOList = purchaseRequestItemService.getPurchaseRequestItemByRequestId(id);
+        return Result.success(purchaseRequestItemVOList);
     }
     @GetMapping("/getPurchaseRequestItemById/{id}")
-    public Result getPurchaseRequestItemById(@PathVariable Integer id) {
+    public Result getPurchaseRequestItemById(@PathVariable Long id) {
         PurchaseRequestItemVO purchaseRequestItemVO = purchaseRequestItemService.getPurchaseRequestItemById(id);
         return Result.success(purchaseRequestItemVO);
     }
@@ -36,7 +34,7 @@ public class PurchaseRequestItemController {
         return purchaseRequestItemService.updatePurchaseRequestItem(purchaseRequestItemDTO);
     }
     @DeleteMapping("/deletePurchaseRequestItem/{ids}")
-    public Result deletePurchaseRequestItem(@PathVariable List<Integer> ids) {
+    public Result deletePurchaseRequestItem(@PathVariable List<Long> ids) {
         return purchaseRequestItemService.deletePurchaseRequestItem(ids);
     }
 }

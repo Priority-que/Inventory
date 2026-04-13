@@ -1,0 +1,44 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.PurchaseOrderMapper">
+    <select id="getPurchaseOrderPage" resultType="com.xixi.pojo.vo.purchase.PurchaseOrderVO">
+        select po.id,po.order_no,po.request_id,po.supplier_id,po.purchaser_id,po.plan_date,po.supplier_date,po.confirm_time,
+               po.total_amount,po.status,po.supplier_note,po.close_time,po.close_reason,po.remark,po.create_time,po.update_time,
+               po.deleted,pr.title as requestTitle,s.name as supplierName,u.name as purchaserName
+        from purchase_order po
+        left join purchase_request pr on po.request_id = pr.id
+        left join supplier s on po.supplier_id = s.id
+        left join user u on po.purchaser_id = u.id
+        <where>
+            <if test="q.orderNo != null and q.orderNo != ''">
+                and po.order_no like concat('%',#{q.orderNo},'%')
+            </if>
+            <if test="q.requestTitle != null and q.requestTitle != ''">
+                and pr.title like concat('%',#{q.requestTitle},'%')
+            </if>
+            <if test="q.supplierName != null and q.supplierName != ''">
+                and s.name like concat('%',#{q.supplierName},'%')
+            </if>
+            <if test="q.purchaseName != null and q.purchaseName != ''">
+                and u.name like concat('%',#{q.purchaseName},'%')
+            </if>
+            <if test="q.status !=null and q.status != ''">
+                and po.status = #{q.status}
+            </if>
+            <if test="q.planDateBegin !=null and q.planDateEnd !=null">
+                and po.plan_date between #{q.planDateBegin} and #{q.planDateEnd}
+            </if>
+        </where>
+    </select>
+    <select id="getPurchaseOrderById" resultType="com.xixi.pojo.vo.purchase.PurchaseOrderVO">
+        select po.id,po.order_no,po.request_id,po.supplier_id,po.purchaser_id,po.plan_date,po.supplier_date,po.confirm_time,
+               po.total_amount,po.status,po.supplier_note,po.close_time,po.close_reason,po.remark,po.create_time,po.update_time,
+               po.deleted,pr.title as requestTitle,s.name as supplierName,u.name as purchaserName
+        from purchase_order po
+        left join purchase_request pr on po.request_id = pr.id
+        left join supplier s on po.supplier_id = s.id
+        left join user u on po.purchaser_id = u.id
+        where po.id = #{id}
+    </select>
+</mapper>

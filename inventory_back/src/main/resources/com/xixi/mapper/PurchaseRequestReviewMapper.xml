@@ -1,0 +1,11 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.PurchaseRequestReviewMapper">
+    <select id="getPurchaseRequestReviewByRequestId" resultType="com.xixi.pojo.vo.purchase.PurchaseRequestReviewVO">
+        select id,request_id,action_type,from_status,to_status,operator_id,operator_name,operate_note,operate_time
+        from purchase_request_review
+        where request_id = #{requestId}
+        order by operate_time asc, id asc
+    </select>
+</mapper>

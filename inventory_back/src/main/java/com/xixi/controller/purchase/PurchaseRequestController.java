@@ -23,7 +23,7 @@ public class PurchaseRequestController {
         return Result.success(page);
     }
     @GetMapping("/getPurchaseRequestById/{id}")
-    public Result getPurchaseRequestById(@PathVariable Integer id) {
+    public Result getPurchaseRequestById(@PathVariable Long id) {
         PurchaseRequestVO purchaseRequestVO = purchaseRequestService.getPurchaseRequestById(id);
         return Result.success(purchaseRequestVO);
     }
@@ -34,6 +34,14 @@ public class PurchaseRequestController {
     @PutMapping("/updatePurchaseRequest")
     public Result updatePurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO) {
         return purchaseRequestService.updatePurchaseRequest(purchaseRequestDTO);
+    }
+    @PutMapping("/submitPurchaseRequest")
+    public Result submitPurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
+        return purchaseRequestService.submitPurchaseRequest(purchaseRequestDTO);
+    }
+    @PutMapping("/withdrawPurchaseRequest")
+    public Result withdrawPurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
+        return purchaseRequestService.withdrawPurchaseRequest(purchaseRequestDTO);
     }
     @DeleteMapping("/deletePurchaseRequest/{ids}")
     public Result deletePurchaseRequest(@PathVariable List<Integer> ids) {

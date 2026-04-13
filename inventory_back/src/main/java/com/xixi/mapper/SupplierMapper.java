@@ -7,9 +7,12 @@ import com.xixi.pojo.query.supplier.SupplierPageQuery;
 import com.xixi.pojo.vo.supplier.SupplierVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface SupplierMapper extends BaseMapper<Supplier>{
 
     public IPage<SupplierVO> getSupplierPage(IPage<SupplierVO> supplierPageVOIPage, @Param("q") SupplierPageQuery supplierPageQuery);
+    @Select("select * from supplier where id =#{id}")
+    Supplier getSupplierById(Long id);
 }
