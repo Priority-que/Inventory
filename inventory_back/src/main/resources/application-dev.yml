@@ -4,7 +4,27 @@ spring:
     url: jdbc:mysql://114.132.43.247:3306/inventory?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: Ly0628..
-
+  data:
+    redis:
+      host: 106.53.8.74
+      port: 6379
+      password: 123456
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          max-wait: -1ms
+          min-idle: 0
+        shutdown-timeout: 100ms
+security:
+  jwt:
+    secret: Always believe that something wonderful is about to happen.
+    expire-minutes: 120
+    header: Authorization
+    prefix: Bearer
+    blacklist-prefix: "auth:blacklist:"
 mybatis-plus:
   mapper-locations: classpath*:com/xixi/mapper/*.xml
   configuration:
