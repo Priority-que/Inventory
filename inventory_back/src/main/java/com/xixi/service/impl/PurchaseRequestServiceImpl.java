@@ -24,6 +24,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import static com.xixi.util.SecurityUtils.getCurrentUserId;
+import static com.xixi.util.SecurityUtils.getCurrentUsername;
+
 @Service
 @RequiredArgsConstructor
 public class PurchaseRequestServiceImpl implements PurchaseRequestService {
@@ -46,8 +49,13 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
     @Override
     public Result addPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            return Result.error("当前登录用户不存在");
+        }
         PurchaseRequest purchaseRequest = BeanUtil.copyProperties(purchaseRequestDTO, PurchaseRequest.class);
-        String requestNo = generateRequestNo(purchaseRequest.getApplicantId());
+        purchaseRequest.setApplicantId(currentUserId);
+        String requestNo = generateRequestNo(currentUserId);
         purchaseRequest.setRequestNo(requestNo);
         purchaseRequest.setStatus("DRAFT");
         if (purchaseRequestMapper.insert(purchaseRequest) > 0) {
@@ -81,12 +89,19 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     @Transactional
     @Override
     public Result submitPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            return Result.error("当前登录用户不存在");
+        }
         if (purchaseRequestDTO.getId() == null) {
             return Result.error("申请主表Id不能为空");
         }
         PurchaseRequest purchaseRequest = purchaseRequestMapper.findPurchaseRequestById(purchaseRequestDTO.getId());
         if (purchaseRequest == null) {
             return Result.error("申请单不存在");
+        }
+        if (!currentUserId.equals(purchaseRequest.getApplicantId())) {
+            return Result.error("当前用户不是申请人，不能提交该申请单");
         }
         if (!"DRAFT".equals(purchaseRequest.getStatus()) && !"REJECTED".equals(purchaseRequest.getStatus())) {
             return Result.error("申请单状态必须为草稿或者被拒绝");
@@ -114,9 +129,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         purchaseRequestReview.setRequestId(purchaseRequest.getId());
         purchaseRequestReview.setFromStatus(fromStatus);
         purchaseRequestReview.setToStatus("PENDING_APPROVAL");
-        // TODO 后续这里实现登录认证信息之后改成当前用户信息
-        purchaseRequestReview.setOperatorId(purchaseRequest.getApplicantId());
-        purchaseRequestReview.setOperatorName("坤坤");
+        purchaseRequestReview.setOperatorId(getCurrentUserId());
+        purchaseRequestReview.setOperatorName(getCurrentUsername());
         purchaseRequestReview.setOperateTime(LocalDateTime.now());
         purchaseRequestReviewService.saveReview(purchaseRequestReview);
         return Result.success("提交申请单成功！");
@@ -125,12 +139,19 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     @Transactional
     @Override
     public Result withdrawPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            return Result.error("当前登录用户不存在");
+        }
         if (purchaseRequestDTO.getId() == null) {
             return Result.error("申请主表Id不能为空");
         }
         PurchaseRequest purchaseRequest = purchaseRequestMapper.findPurchaseRequestById(purchaseRequestDTO.getId());
         if (purchaseRequest == null) {
             return Result.error("申请单不存在");
+        }
+        if (!currentUserId.equals(purchaseRequest.getApplicantId())) {
+            return Result.error("当前用户不是申请人，不能撤回该申请单");
         }
         if (!"PENDING_APPROVAL".equals(purchaseRequest.getStatus())) {
             return Result.error("申请单状态不是待审核状态，不能撤回");
@@ -147,9 +168,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         purchaseRequestReview.setFromStatus(fromStatus);
         purchaseRequestReview.setToStatus(purchaseRequest.getStatus());
         purchaseRequestReview.setOperateNote("申请人主动撤回");
-        // TODO 后续这里实现登录认证信息之后改成当前用户信息
-        purchaseRequestReview.setOperatorId(purchaseRequest.getApplicantId());
-        purchaseRequestReview.setOperatorName("坤坤");
+        purchaseRequestReview.setOperatorId(getCurrentUserId());
+        purchaseRequestReview.setOperatorName(getCurrentUsername());
         purchaseRequestReview.setOperateTime(LocalDateTime.now());
         purchaseRequestReviewService.saveReview(purchaseRequestReview);
         return Result.success("撤回申请单成功！");
@@ -171,8 +191,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             return Result.error("审核意见为空");
         }
         purchaseRequest.setStatus("APPROVED");
-        //TODO 审核ID还没有完善，后续登录认证完成再开发
-        purchaseRequest.setReviewUserId(11L);
+        purchaseRequest.setReviewUserId(getCurrentUserId());
         purchaseRequest.setReviewTime(LocalDateTime.now());
         purchaseRequest.setReviewNote(purchaseRequestDTO.getReviewNote());
         if (purchaseRequestMapper.updateById(purchaseRequest) <= 0) {
@@ -184,9 +203,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         purchaseRequestReview.setActionType("APPROVE");
         purchaseRequestReview.setFromStatus("PENDING_APPROVAL");
         purchaseRequestReview.setToStatus("APPROVED");
-        //TODO 审核ID还没有完善，后续登录认证完成再开发
         purchaseRequestReview.setOperatorId(purchaseRequest.getReviewUserId());
-        purchaseRequestReview.setOperatorName("鸡哥");
+        purchaseRequestReview.setOperatorName(getCurrentUsername());
         purchaseRequestReview.setOperateNote(purchaseRequestDTO.getReviewNote());
         purchaseRequestReview.setOperateTime(LocalDateTime.now());
         purchaseRequestReviewService.saveReview(purchaseRequestReview);
@@ -206,8 +224,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             return Result.error("采购申请单状态不是审核中！");
         }
         purchaseRequest.setStatus("REJECTED");
-        //TODO 审核ID还没有完善，后续登录认证完成再开发
-        purchaseRequest.setReviewUserId(11L);
+        purchaseRequest.setReviewUserId(getCurrentUserId());
         purchaseRequest.setReviewTime(LocalDateTime.now());
         purchaseRequest.setReviewNote(purchaseRequestDTO.getReviewNote());
         if (purchaseRequestMapper.updateById(purchaseRequest) <= 0) {
@@ -219,9 +236,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         purchaseRequestReview.setActionType("REJECT");
         purchaseRequestReview.setFromStatus("PENDING_APPROVAL");
         purchaseRequestReview.setToStatus("REJECTED");
-        //TODO 审核ID还没有完善，后续登录认证完成再开发
         purchaseRequestReview.setOperatorId(purchaseRequest.getReviewUserId());
-        purchaseRequestReview.setOperatorName("鸡哥");
+        purchaseRequestReview.setOperatorName(getCurrentUsername());
         purchaseRequestReview.setOperateNote(purchaseRequestDTO.getReviewNote());
         purchaseRequestReview.setOperateTime(LocalDateTime.now());
         purchaseRequestReviewService.saveReview(purchaseRequestReview);
