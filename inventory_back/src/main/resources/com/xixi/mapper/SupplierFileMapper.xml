@@ -1,0 +1,25 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.SupplierFileMapper">
+
+    <select id="getMaxFileRound" resultType="Integer">
+        select file_round
+        from supplier_file
+        where supplier_id = #{supplierId}
+          and file_type = #{fileType}
+          and deleted = 0
+        order by file_round desc
+        limit 1
+        for update
+    </select>
+
+    <update id="disableActiveFile">
+        update supplier_file
+        set active_flag = 0
+        where supplier_id = #{supplierId}
+          and file_type = #{fileType}
+          and active_flag = 1
+          and deleted = 0
+    </update>
+</mapper>

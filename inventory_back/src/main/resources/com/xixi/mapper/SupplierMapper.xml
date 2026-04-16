@@ -26,4 +26,11 @@
             and deleted = 0
         </where>
     </select>
+    <update id="updateFileRound">
+        update supplier
+        set file_round = #{fileRound}
+        where id = #{id}
+          and deleted = 0
+    </update>
+
 </mapper>

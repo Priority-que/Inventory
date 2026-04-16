@@ -32,8 +32,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.xixi.util.SecurityUtils.getCurrentUserId;
-
 @Service
 @RequiredArgsConstructor
 public class PurchaseOrderServiceImpl implements PurchaseOrderService {
@@ -59,10 +57,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Transactional
     @Override
     public Result addPurchaseOrder(PurchaseOrderDTO purchaseOrderDTO) {
-        Long currentUserId = getCurrentUserId();
-        if (currentUserId == null) {
-            return Result.error("当前登录用户不存在");
-        }
         PurchaseOrder purchaseOrder = BeanUtil.copyProperties(purchaseOrderDTO, PurchaseOrder.class);
         if (purchaseOrder.getRequestId() == null) {
             return Result.error("采购申请Id为空");
@@ -70,7 +64,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (purchaseOrder.getSupplierId() == null) {
             return Result.error("供应商Id为空");
         }
-        purchaseOrder.setPurchaserId(currentUserId);
+        if (purchaseOrder.getPurchaserId() == null) {
+            return Result.error("采购员Id为空");
+        }
         if (purchaseOrder.getPlanDate() == null) {
             return Result.error("计划交期为空");
         }
