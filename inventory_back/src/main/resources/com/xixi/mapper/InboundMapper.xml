@@ -1,0 +1,71 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.InboundMapper">
+    <select id="getInboundPage" resultType="com.xixi.pojo.vo.inbound.InboundVO">
+        select i.id, i.inbound_no, i.arrival_id, a.arrival_no, a.order_id, po.order_no,
+               i.warehouse_id, w.name warehouseName, i.inbound_number, i.status,
+               i.operator_id, i.inbound_time, i.remark, i.create_time, i.update_time, i.deleted
+        from inbound i
+        left join arrival a on i.arrival_id = a.id
+        left join purchase_order po on a.order_id = po.id
+        left join warehouse w on i.warehouse_id = w.id
+        <where>
+            i.deleted = 0
+            <if test="q.inboundNo != null and q.inboundNo != ''">
+                and i.inbound_no like concat('%', #{q.inboundNo}, '%')
+            </if>
+            <if test="q.arrivalNo != null and q.arrivalNo != ''">
+                and a.arrival_no like concat('%', #{q.arrivalNo}, '%')
+            </if>
+            <if test="q.orderNo != null and q.orderNo != ''">
+                and po.order_no like concat('%', #{q.orderNo}, '%')
+            </if>
+            <if test="q.warehouseName != null and q.warehouseName != ''">
+                and w.name like concat('%', #{q.warehouseName}, '%')
+            </if>
+            <if test="q.status != null and q.status != ''">
+                and i.status = #{q.status}
+            </if>
+            <if test="q.inboundTimeBegin != null and q.inboundTimeEnd != null">
+                and i.inbound_time between #{q.inboundTimeBegin} and #{q.inboundTimeEnd}
+            </if>
+        </where>
+        order by i.create_time desc, i.id desc
+    </select>
+
+    <select id="getInboundById" resultType="com.xixi.pojo.vo.inbound.InboundVO">
+        select i.id, i.inbound_no, i.arrival_id, a.arrival_no, a.order_id, po.order_no,
+               i.warehouse_id, w.name warehouseName, i.inbound_number, i.status,
+               i.operator_id, i.inbound_time, i.remark, i.create_time, i.update_time, i.deleted
+        from inbound i
+        left join arrival a on i.arrival_id = a.id
+        left join purchase_order po on a.order_id = po.id
+        left join warehouse w on i.warehouse_id = w.id
+        where i.id = #{id}
+          and i.deleted = 0
+    </select>
+
+    <select id="lockById" resultType="Long">
+        select id
+        from inbound
+        where id = #{id}
+          and deleted = 0
+        for update
+    </select>
+
+    <select id="countByArrivalId" resultType="Integer">
+        select count(1)
+        from inbound
+        where arrival_id = #{arrivalId}
+          and deleted = 0
+    </select>
+
+    <update id="completeInbound">
+        update inbound
+        set status = 'COMPLETED',
+            inbound_time = #{inboundTime}
+        where id = #{id}
+          and deleted = 0
+    </update>
+</mapper>
