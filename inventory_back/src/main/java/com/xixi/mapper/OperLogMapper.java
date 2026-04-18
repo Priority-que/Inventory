@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xixi.entity.OperLog;
 import com.xixi.pojo.query.log.OperLogPageQuery;
 import com.xixi.pojo.vo.log.OperLogPageVO;
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+@Mapper
 public interface OperLogMapper extends BaseMapper<OperLog> {
     IPage<OperLogPageVO> getOperLogPage(IPage<OperLogPageVO> operLogPageVOIPage, @Param("q")OperLogPageQuery operLogPageQuery);
 }

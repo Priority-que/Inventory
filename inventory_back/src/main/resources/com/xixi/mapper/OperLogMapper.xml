@@ -10,7 +10,7 @@
         from sys_oper_log
         <where>
             <if test="q.logType!=null and q.logType!=''">
-                and lopg_type=#{q.logType}
+                and log_type=#{q.logType}
             </if>
             <if test="q.moduleName!=null and q.moduleName!=''">
                 and module_name like concat('%',#{q.moduleName},'%')

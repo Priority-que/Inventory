@@ -4,11 +4,12 @@ import lombok.Data;
 
 @Data
 public class OperLogPageQuery {
-    private Integer pageNum;
+    private Integer pageNum=1;
 
-    private  Integer pageSize;
-
+    private  Integer pageSize=10;
     private String logType;
+
+    private String operatorName;
 
     private  String moduleName;
 
