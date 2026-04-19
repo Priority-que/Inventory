@@ -1,8 +1,10 @@
 package com.xixi.service.impl;
+import com.xixi.annotation.OperLogRecord;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.xixi.annotation.OperLogRecord;
 import com.xixi.entity.Material;
 import com.xixi.mapper.MaterialMapper;
 import com.xixi.pojo.dto.material.MaterialDTO;
@@ -30,6 +32,13 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "物料管理",
+            operationType = "CREATE",
+            operationDesc = "新增物料",
+            bizType = "MATERIAL"
+    )
     public Result addMaterial(MaterialDTO materialDTO) {
         Material material = BeanUtil.copyProperties(materialDTO, Material.class);
         if(materialMapper.insert(material)>0){

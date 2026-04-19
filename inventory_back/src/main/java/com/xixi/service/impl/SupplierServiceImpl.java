@@ -3,6 +3,7 @@ package com.xixi.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.xixi.annotation.OperLogRecord;
 import com.xixi.entity.Supplier;
 import com.xixi.mapper.SupplierMapper;
 import com.xixi.pojo.dto.supplier.SupplierDTO;
@@ -27,6 +28,13 @@ public class SupplierServiceImpl implements SupplierService {
         return page;
     }
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "供应商管理",
+            operationType = "CREATE",
+            operationDesc = "新增供应商",
+            bizType = "SUPPLIER"
+    )
     public Result addSupplier(SupplierDTO supplierDTO){
         Supplier supplier= BeanUtil.copyProperties(supplierDTO,Supplier.class);
         if(supplierMapper.insert(supplier)>0){
@@ -36,6 +44,13 @@ public class SupplierServiceImpl implements SupplierService {
     }
 
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "供应商管理",
+            operationType = "UPDATE",
+            operationDesc = "修改供应商",
+            bizType = "SUPPLIER"
+    )
     public Result updateSupplier(SupplierDTO supplierDTO) {
         Supplier supplier= BeanUtil.copyProperties(supplierDTO,Supplier.class);
         if(supplierMapper.updateById(supplier)>0){
