@@ -1,4 +1,6 @@
 package com.xixi.service.impl;
+import com.xixi.annotation.OperLogRecord;
+
 
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -28,6 +30,14 @@ public class WarehouseServiceImpl implements WarehouseService {
     }
 
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "仓库管理",
+            operationType = "CREATE",
+            operationDesc = "新增仓库",
+            bizType = "WAREHOUSE"
+
+    )
     public Result addWarehouse(WarehouseDTO warehouseDTO) {
         Warehouse warehouse = BeanUtil.copyProperties(warehouseDTO, Warehouse.class);
         if(warehouseMapper.insert(warehouse)>0){
