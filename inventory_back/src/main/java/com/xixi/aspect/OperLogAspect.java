@@ -1,11 +1,9 @@
 package com.xixi.aspect;
 
-
-import cn.hutool.http.server.HttpServerRequest;
 import com.xixi.annotation.OperLogRecord;
 import com.xixi.entity.OperLog;
-import com.xixi.mapper.OperLogMapper;
 import com.xixi.security.LoginUser;
+import com.xixi.service.OperLogRecordService;
 import com.xixi.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -23,7 +21,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class OperLogAspect {
 
-    private final OperLogMapper operLogMapper;
+    private final OperLogRecordService operLogRecordService;
 
     @Around("@annotation(operLogRecord)")
     public Object recordOperLog(ProceedingJoinPoint joinPoint, OperLogRecord operLogRecord) throws Throwable {
@@ -63,12 +61,15 @@ public class OperLogAspect {
                 operLog.setRequestMethod(request==null?null:request.getMethod());
                 operLog.setIpAddress(request==null?null:request.getRemoteAddr());
                 operLog.setSuccessFlag(successFlag);
+                if(errorMessage!=null && errorMessage.length()>500){
+                    errorMessage=errorMessage.substring(0,500);
+                }
                 operLog.setErrorMessage(errorMessage);
                 operLog.setOperateTime(LocalDateTime.now());
                 operLog.setCreateBy(loginUser==null?null:loginUser.getUserId());
                 operLog.setCreateTime(LocalDateTime.now());
 
-                operLogMapper.insert(operLog);
+                operLogRecordService.saveOperLog(operLog);
             }catch (Exception e){
                 e.printStackTrace();
             }
