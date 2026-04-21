@@ -6,9 +6,8 @@ spring:
     password: Ly0628..
   data:
     redis:
-      host: 106.53.8.74
+      host: 114.132.43.247
       port: 6379
-      password: 123456
       database: 0
       timeout: 5000ms
       lettuce:
@@ -18,6 +17,19 @@ spring:
           max-wait: -1ms
           min-idle: 0
         shutdown-timeout: 100ms
+  ai:
+    dashscope:
+      api-key: ${AI_DASHSCOPE_API_KEY}
+      embedding:
+        enabled: true
+        options:
+          model: text-embedding-v3
+    vectorstore:
+      redis:
+        index-name: "ikun-rag-index:"
+        prefix: "ikun-rag-prefix:"
+        initialize-schema: true
+
 security:
   jwt:
     secret: Always believe that something wonderful is about to happen.

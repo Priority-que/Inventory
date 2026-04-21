@@ -1,0 +1,15 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.agent.mapper.AgentSessionMapper">
+    <select id="getSessionListByUserId" resultType="com.xixi.agent.vo.AgentSessionVO">
+        select id, session_no, thread_id, user_id, title, agent_type,
+        current_intent, status, last_message_time, create_time
+        from agent_session
+        where deleted = 0
+        <if test="userId != null">
+            and user_id = #{userId}
+        </if>
+        order by last_message_time desc, id desc
+    </select>
+</mapper>

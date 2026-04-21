@@ -1,0 +1,13 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.agent.mapper.AgentMessageMapper">
+    <select id="getMessagesByThreadId" resultType="com.xixi.agent.vo.AgentMessageVO">
+        select id, session_id, thread_id, message_role, message_type,
+               content, create_time
+        from agent_message
+        where thread_id = #{threadId}
+          and deleted = 0
+        order by create_time asc, id asc
+    </select>
+</mapper>
