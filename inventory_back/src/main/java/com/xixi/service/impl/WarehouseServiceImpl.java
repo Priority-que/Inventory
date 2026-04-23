@@ -47,6 +47,13 @@ public class WarehouseServiceImpl implements WarehouseService {
     }
 
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "仓库管理",
+            operationType = "UPDATE",
+            operationDesc = "修改仓库",
+            bizType = "WAREHOUSE"
+    )
     public Result updateWarehouse(WarehouseDTO warehouseDTO) {
         Warehouse warehouse = BeanUtil.copyProperties(warehouseDTO, Warehouse.class);
         if(warehouseMapper.updateById(warehouse)>0){

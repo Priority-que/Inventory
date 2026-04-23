@@ -1,5 +1,8 @@
 package com.xixi.aspect;
 
+import com.xixi.pojo.dto.material.MaterialDTO;
+import com.xixi.pojo.dto.supplier.SupplierDTO;
+import com.xixi.pojo.dto.warehouse.WarehouseDTO;
 import com.xixi.annotation.OperLogRecord;
 import com.xixi.entity.OperLog;
 import com.xixi.security.LoginUser;
@@ -33,6 +36,7 @@ public class OperLogAspect {
         String operationType=operLogRecord.operationType();
         String operationDesc=operLogRecord.operationDesc();
         String bizType=operLogRecord.bizType();
+        Long bizId = getBizId(joinPoint.getArgs(), bizType);
 
         try{
             result=joinPoint.proceed();
@@ -53,6 +57,7 @@ public class OperLogAspect {
                 operLog.setLogType(operLogRecord.logType());
                 operLog.setModuleName(moduleName);
                 operLog.setBizType(bizType==null||bizType.isBlank()?null:bizType);
+                operLog.setBizId(bizId);
                 operLog.setOperationType(operationType);
                 operLog.setOperationDesc(operationDesc);
                 operLog.setOperatorId(loginUser==null?null:loginUser.getUserId());
@@ -74,5 +79,23 @@ public class OperLogAspect {
                 e.printStackTrace();
             }
         }
+    }
+
+    private Long getBizId(Object[] args, String bizType){
+        if(args==null || bizType==null || bizType.isBlank()){
+            return null;
+        }
+        for (Object arg : args) {
+            if("SUPPLIER".equals(bizType) && arg instanceof SupplierDTO supplierDTO){
+                return  supplierDTO.getId();
+            }
+            if ("WAREHOUSE".equals(bizType) && arg instanceof WarehouseDTO warehouseDTO) {
+                return warehouseDTO.getId();
+            }
+            if ("MATERIAL".equals(bizType) && arg instanceof MaterialDTO materialDTO) {
+                return materialDTO.getId();
+            }
+        }
+        return null;
     }
 }

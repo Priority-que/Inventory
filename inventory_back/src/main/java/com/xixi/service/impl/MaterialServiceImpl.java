@@ -48,6 +48,13 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "物料管理",
+            operationType = "UPDATE",
+            operationDesc = "修改物料",
+            bizType = "MATERIAL"
+    )
     public Result updateMaterial(MaterialDTO materialDTO) {
         Material material = BeanUtil.copyProperties(materialDTO, Material.class);
         if(materialMapper.updateById(material)>0){
