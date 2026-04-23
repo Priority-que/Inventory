@@ -46,3 +46,7 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
+
+python-agent:
+  base-url: http://127.0.0.1:8000
+  timeout-ms: 60000

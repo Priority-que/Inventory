@@ -5,11 +5,13 @@ import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.xixi.agent.dto.*;
 import com.xixi.agent.service.ProcessDiagnosisAgentService;
+import com.xixi.agent.service.PythonWorkflowProxyService;
 import com.xixi.agent.service.ProcurementWarningAgentService;
 import com.xixi.agent.service.SupplierPerformanceAgentService;
-import com.xixi.agent.workflow.ProcurementWorkflowExecutor;
 import com.xixi.pojo.vo.Result;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +23,7 @@ public class AgentController {
     private final ProcessDiagnosisAgentService processDiagnosisAgentService;
     private final ProcurementWarningAgentService procurementWarningAgentService;
     private final SupplierPerformanceAgentService supplierPerformanceAgentService;
-    private final ProcurementWorkflowExecutor procurementWorkflowExecutor;
+    private final PythonWorkflowProxyService pythonWorkflowProxyService;
 
     @PostMapping("/chat")
     public Result chat(@RequestBody AgentChatRequest agentChatRequest) throws GraphRunnerException {
@@ -48,7 +50,9 @@ public class AgentController {
         return Result.success(supplierPerformanceAgentService.scoreSupplier(request));
     }
     @PostMapping("/workflow/execute")
-    public Result execute(@RequestBody WorkflowAgentRequest request) throws Exception {
-        return Result.success(procurementWorkflowExecutor.execute(request));
+    public ResponseEntity<String> execute(@RequestBody WorkflowAgentRequest request,
+                                          @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
+                                          String authorization) {
+        return pythonWorkflowProxyService.executeWorkflow(request, authorization);
     }
 }
