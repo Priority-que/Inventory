@@ -24,6 +24,8 @@ from app.workflows.nodes.route_decision import RouteDecisionNode
 from app.workflows.nodes.supplier_score_rule import SupplierScoreRuleNode
 from app.workflows.nodes.warning_rule_analyze import WarningRuleAnalyzeNode
 from app.workflows.state import WorkflowGraphState, WorkflowIntent, WorkflowStateKeys
+from app.workflows.nodes.turn_understand import TurnUnderstandNode
+from app.workflows.nodes.biz_scope_resolve import BizScopeResolverNode
 
 
 class WorkflowExecutor:
@@ -64,10 +66,15 @@ class WorkflowExecutor:
         builder.add_node("guardrailValidate", GuardrailValidateNode())
         builder.add_node("buildFinalResponse", BuildFinalResponseNode())
 
+        builder.add_node("turnUnderstand", TurnUnderstandNode())
+        builder.add_node("bizScopeResolve", BizScopeResolverNode())
+
         builder.add_edge(START, "preprocessInput")
-        builder.add_edge("preprocessInput", "classifyIntent")
+        builder.add_edge("preprocessInput", "turnUnderstand")
+        builder.add_edge("turnUnderstand", "classifyIntent")
         builder.add_edge("classifyIntent", "extractEntities")
-        builder.add_edge("extractEntities", "retrieveKnowledge")
+        builder.add_edge("extractEntities", "bizScopeResolve")
+        builder.add_edge("bizScopeResolve", "retrieveKnowledge")
         builder.add_edge("retrieveKnowledge", "answerPlan")
         builder.add_edge("answerPlan", "routeByIntent")
 
@@ -109,7 +116,7 @@ class WorkflowExecutor:
         self.session_store.save_user_message(session, request.message)
 
         restored_state = self.session_store.load_state_by_thread_id(session["thread_id"])
-        input_state = dict(restored_state)
+        input_state = self._sanitize_restored_state(dict(restored_state))
         input_state[WorkflowStateKeys.MESSAGE] = request.message or ""
         input_state[WorkflowStateKeys.THREAD_ID] = session["thread_id"]
         input_state[WorkflowStateKeys.AUTHORIZATION] = authorization
@@ -140,3 +147,20 @@ class WorkflowExecutor:
         self.session_store.save_state(session, "END", current_intent_for_session, dict(result_state))
         self.session_store.save_result(session, response)
         return response
+
+
+    def _sanitize_restored_state(self, restored_state: dict) -> dict:
+        keep_keys = {
+            WorkflowStateKeys.CONVERSATION_MEMORY,
+            WorkflowStateKeys.ORDER_DIAGNOSIS,
+            WorkflowStateKeys.WARNING_ANALYSIS,
+            WorkflowStateKeys.SUPPLIER_SCORE,
+            WorkflowStateKeys.ANSWER_PLAN,
+            WorkflowStateKeys.SELECTED_CONTEXT,
+        }
+
+        return {
+            key: value
+            for key, value in restored_state.items()
+            if key in keep_keys
+        }

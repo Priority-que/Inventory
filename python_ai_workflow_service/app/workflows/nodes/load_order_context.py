@@ -23,8 +23,11 @@ class LoadOrderContextNode:
         context = await self.backend.get_agent_order_context(str(order_no), authorization)
         self.session_store.save_tool_message(thread_id, "loadOrderContext", self._json(entity), self._json(context))
 
-        if not context or not context.get("exists"):
-            return {WorkflowStateKeys.ERROR_MESSAGE: "采购订单号不存在"}
+        if not context:
+            return {WorkflowStateKeys.ERROR_MESSAGE: f"没有从 Java 后端拿到订单上下文：{order_no}"}
+
+        if not context.get("exists"):
+            return {WorkflowStateKeys.ERROR_MESSAGE: f"采购订单号不存在或 Java 未查到上下文：{order_no}"}
 
         order = context.get("order") or {}
         return {

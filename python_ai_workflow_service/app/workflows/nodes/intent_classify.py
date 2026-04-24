@@ -43,6 +43,13 @@ class IntentClassifyNode:
                 WorkflowStateKeys.ACTIVE_INTENT: rule_intent,
             }
 
+        if active_intent != WorkflowIntent.UNKNOWN.value and interaction_type == InteractionType.BUSINESS.value:
+            return {
+                WorkflowStateKeys.INTERACTION_TYPE: InteractionType.BUSINESS.value,
+                WorkflowStateKeys.INTENT: active_intent,
+                WorkflowStateKeys.ACTIVE_INTENT: active_intent,
+            }
+
         prompt = (
             INTENT_CLASSIFY_PROMPT
             .replace("{previousIntent}", active_intent)
@@ -88,6 +95,23 @@ class IntentClassifyNode:
             WorkflowIntent.KNOWLEDGE_QA.value,
         }:
             return current_intent
+
+        memory = dict(state.get(WorkflowStateKeys.CONVERSATION_MEMORY, {}) or {})
+        memory_intent = str(memory.get("lastIntent", "")).strip()
+        if memory_intent in {
+            WorkflowIntent.ORDER_DIAGNOSIS.value,
+            WorkflowIntent.WARNING_SCAN.value,
+            WorkflowIntent.SUPPLIER_SCORE.value,
+            WorkflowIntent.KNOWLEDGE_QA.value,
+        }:
+            return memory_intent
+
+        if state.get(WorkflowStateKeys.ORDER_DIAGNOSIS):
+            return WorkflowIntent.ORDER_DIAGNOSIS.value
+        if state.get(WorkflowStateKeys.WARNING_ANALYSIS):
+            return WorkflowIntent.WARNING_SCAN.value
+        if state.get(WorkflowStateKeys.SUPPLIER_SCORE):
+            return WorkflowIntent.SUPPLIER_SCORE.value
 
         return WorkflowIntent.UNKNOWN.value
 
@@ -151,6 +175,9 @@ class IntentClassifyNode:
             return explicit_intent
 
         if active_intent != WorkflowIntent.UNKNOWN.value and self._looks_like_business_follow_up(text):
+            explicit_intent = self._detect_explicit_business_intent(text)
+            if explicit_intent is not None:
+                return explicit_intent
             return active_intent
 
         return None
@@ -213,6 +240,12 @@ class IntentClassifyNode:
                 "下一步",
                 "怎么处理",
                 "怎么办",
+                "怎么提升",
+                "如何提升",
+                "提升",
+                "优化",
+                "改善",
+                "提高",
                 "谁处理",
                 "什么意思",
                 "依据",
@@ -220,6 +253,11 @@ class IntentClassifyNode:
                 "哪些",
                 "先处理",
                 "怎么解决",
+                "整理",
+                "话术",
+                "催办",
+                "发给",
+                "沟通",
                 "这个问题",
                 "这个分数",
                 "这个风险",

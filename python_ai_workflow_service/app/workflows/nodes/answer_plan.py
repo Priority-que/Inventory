@@ -12,21 +12,27 @@ class AnswerPlanNode:
         interaction_type = str(state.get(WorkflowStateKeys.INTERACTION_TYPE, InteractionType.BUSINESS.value))
         intent = str(state.get(WorkflowStateKeys.INTENT, WorkflowIntent.UNKNOWN.value))
         message = str(state.get(WorkflowStateKeys.MESSAGE, ""))
-        biz_type, biz_key = self._resolve_biz_scope(state, intent, message)
+        biz_type = state.get(WorkflowStateKeys.BIZ_TYPE)
+        biz_key = state.get(WorkflowStateKeys.BIZ_KEY)
+        scope_status = state.get(WorkflowStateKeys.SCOPE_STATUS)
 
         if interaction_type != InteractionType.BUSINESS.value:
             plan = AnswerPlan(
-                interactionType=interaction_type,
-                intent=WorkflowIntent.UNKNOWN.value,
-                questionFocus=interaction_type,
-                turnType="FIRST_TURN",
-                answerMode=interaction_type,
+                interactionType=InteractionType.BUSINESS.value,
+                intent=intent,
+                questionFocus=self._question_focus(intent, message),
+                turnType="FOLLOW_UP" if scope_status == "INHERITED" else "FIRST_TURN",
+                answerMode="FOCUSED_ANSWER",
                 bizType=biz_type,
                 bizKey=biz_key,
-                needsRefresh=False,
-                useLlm=False,
-                maxContextItems=0,
+                targetBizNo=self._extract_biz_no(message),
+                targetOrderNo=self._extract_order_no(message),
+                targetSupplierId=self._extract_supplier_id(message),
+                needsRefresh=self._needs_refresh(state, intent, message, biz_key),
+                useLlm=True,
+                maxContextItems=10,
             )
+
             return {WorkflowStateKeys.ANSWER_PLAN: plan.model_dump(by_alias=True)}
 
         plan = AnswerPlan(
@@ -56,7 +62,7 @@ class AnswerPlanNode:
                 return "OWNER_REASON"
             if asks_owner:
                 return "OWNER"
-            if self._contains_any(text, ["下一步", "怎么办", "怎么处理", "怎么解决"]):
+            if self._contains_any(text, ["下一步", "怎么办", "怎么处理", "怎么解决", "催办", "话术", "发给", "沟通", "提醒"]):
                 return "NEXT_ACTION"
             if asks_reason or self._contains_any(text, ["卡在哪", "没完成"]):
                 return "CAUSE"
@@ -100,6 +106,8 @@ class AnswerPlanNode:
         return self._contains_any(message, ["重新", "刷新", "重新扫描", "再算", "最新"])
 
     def _has_reusable_result(self, state: dict, intent: str, biz_key: str | None) -> bool:
+        if not biz_key:
+            return False
         if not self._scope_matches_cached_result(state, intent, biz_key):
             return False
         if intent == WorkflowIntent.ORDER_DIAGNOSIS.value:

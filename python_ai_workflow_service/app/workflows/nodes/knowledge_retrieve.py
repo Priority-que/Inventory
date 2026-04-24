@@ -15,6 +15,9 @@ class KnowledgeRetrieveNode:
         if interaction_type != InteractionType.BUSINESS.value or intent == "UNKNOWN":
             return {WorkflowStateKeys.RAG_DOCS: ""}
 
+        if intent != "KNOWLEDGE_QA":
+            return {WorkflowStateKeys.RAG_DOCS: self._fallback_docs(intent)}
+
         try:
             hits = await self.rag_service.search_internal(message, intent, 4, authorization)
             docs = self._build_rag_docs(hits, intent)

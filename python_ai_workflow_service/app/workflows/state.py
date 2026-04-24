@@ -58,6 +58,13 @@ class WorkflowStateKeys:
 
     ORDER_CONTEXT = "orderContext"
     SUPPLIER_CONTEXT = "supplierContext"
+    
+    TURN_UNDERSTANDING = "turnUnderstanding"
+    EXPLICIT_ENTITY = "explicitEntity"
+    BIZ_TYPE = "bizType"
+    BIZ_KEY = "bizKey"
+    SCOPE_STATUS = "scopeStatus"
+    SCOPE_REASON = "scopeReason"
 
 
 class WorkflowEntity(ApiModel):
@@ -74,6 +81,13 @@ class WorkflowGraphState(TypedDict, total=False):
     authorization: str
     userId: int
     normalizedMessage: str
+
+    turnUnderstanding: dict[str, Any]
+    explicitEntity: dict[str, Any]
+    bizType: str
+    bizKey: str
+    scopeStatus: str
+    scopeReason: str
 
     intent: str
     activeIntent: str

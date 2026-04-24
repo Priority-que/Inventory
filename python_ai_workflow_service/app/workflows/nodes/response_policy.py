@@ -9,8 +9,19 @@ class ResponsePolicyNode:
         plan = dict(state.get(WorkflowStateKeys.ANSWER_PLAN, {}) or {})
         previous_memory = dict(state.get(WorkflowStateKeys.CONVERSATION_MEMORY, {}) or {})
 
-        emotion = self._detect_emotion(message)
-        policy = self._build_policy(message, interaction_type, selected_context, plan, previous_memory, emotion)
+        turn = dict(state.get(WorkflowStateKeys.TURN_UNDERSTANDING, {}) or {})
+        emotion = turn.get("emotion") or self._detect_emotion(message)
+        speech_act = turn.get("speechAct") or "ASK_OR_CHAT"
+
+        policy = self._build_policy(
+            message,
+            interaction_type,
+            selected_context,
+            plan,
+            previous_memory,
+            emotion,
+            speech_act,
+        )
         memory = self._update_memory(selected_context, plan, previous_memory, emotion)
 
         return {
@@ -19,13 +30,14 @@ class ResponsePolicyNode:
         }
 
     def _build_policy(
-        self,
-        message: str,
-        interaction_type: str,
-        selected_context: dict,
-        plan: dict,
-        memory: dict,
-        emotion: str,
+            self,
+            message: str,
+            interaction_type: str,
+            selected_context: dict,
+            plan: dict,
+            memory: dict,
+            emotion: str,
+            speech_act: str,
     ) -> dict:
         intent = self._effective_intent(selected_context.get("intent"), plan.get("intent"), memory.get("lastIntent"))
         focus = selected_context.get("questionFocus") or plan.get("questionFocus")
@@ -42,6 +54,9 @@ class ResponsePolicyNode:
                 "closingOffer": self._social_closing_offer(intent, memory),
                 "detailLevel": "brief",
                 "includeProactiveOffer": True,
+                "speechAct": speech_act,
+                "shouldEmpathizeFirst": emotion in {"frustrated", "anxious"},
+                "shouldOfferNextStep": speech_act not in {"THANKS", "GREETING"},
             }
 
         opening = ""
@@ -55,11 +70,14 @@ class ResponsePolicyNode:
         return {
             "tone": "business_companion",
             "emotion": emotion,
+            "speechAct": speech_act,
             "empathyLevel": "medium" if emotion in {"frustrated", "anxious"} else "low",
             "opening": opening,
             "closingOffer": self._business_closing_offer(intent, focus),
             "detailLevel": self._detail_level(message, focus),
-            "includeProactiveOffer": True,
+            "shouldEmpathizeFirst": emotion in {"frustrated", "anxious"},
+            "shouldOfferNextStep": speech_act not in {"THANKS", "GREETING"},
+            "sameBusinessLine": is_same_line,
         }
 
     def _update_memory(self, selected_context: dict, plan: dict, memory: dict, emotion: str) -> dict:
@@ -74,10 +92,16 @@ class ResponsePolicyNode:
             updated["lastQuestionFocus"] = selected_context.get("questionFocus") or plan.get("questionFocus")
             updated["lastBizType"] = biz_type
             updated["lastBizKey"] = biz_key
-            updated["lastSummary"] = selected_context.get("summary")
+
+            if intent == WorkflowIntent.SUPPLIER_SCORE.value:
+                entity_supplier_id = plan.get("targetSupplierId")
+                if entity_supplier_id is not None:
+                    updated["lastSupplierId"] = entity_supplier_id
+
+                if biz_key and "days=" in str(biz_key):
+                    updated["lastDays"] = self._extract_days_from_biz_key(str(biz_key))
 
         updated["lastEmotion"] = emotion
-        updated["companionStyle"] = "business_companion"
         return updated
 
     def _detect_emotion(self, text: str) -> str:
@@ -130,6 +154,17 @@ class ResponsePolicyNode:
                 return "如果你愿意，我可以继续把提升动作拆成短期、中期两组。"
             return "如果你愿意，我可以继续把这个供应商的提升重点和跟踪指标列出来。"
         return "如果你愿意，我可以继续顺着这条业务往下拆。"
+
+    def _extract_days_from_biz_key(self, biz_key: str) -> int | None:
+        parts = biz_key.split(",")
+        for part in parts:
+            if part.startswith("days="):
+                try:
+                    return int(part.replace("days=", "", 1))
+                except ValueError:
+                    return None
+        return None
+
 
     def _detail_level(self, text: str, focus: str | None) -> str:
         if self._contains_any(text, ["简单", "一句话", "简短"]):

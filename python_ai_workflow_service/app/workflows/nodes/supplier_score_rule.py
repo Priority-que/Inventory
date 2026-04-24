@@ -3,9 +3,13 @@ from app.workflows.state import WorkflowStateKeys
 
 class SupplierScoreRuleNode:
     async def __call__(self, state: dict) -> dict:
+        existing_error = str(state.get(WorkflowStateKeys.ERROR_MESSAGE, "") or "")
+        if existing_error:
+            return {WorkflowStateKeys.ERROR_MESSAGE: existing_error}
+
         context = dict(state.get(WorkflowStateKeys.SUPPLIER_CONTEXT, {}) or {})
         if not context:
-            return {WorkflowStateKeys.ERROR_MESSAGE: "供应商上下文为空"}
+            return {WorkflowStateKeys.ERROR_MESSAGE: "供应商上下文为空，请检查 Java 供应商上下文接口。"}
 
         supplier = context.get("supplier") or {}
         score = context.get("score") or {}

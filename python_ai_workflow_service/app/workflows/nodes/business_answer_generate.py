@@ -78,15 +78,18 @@ class BusinessAnswerGenerateNode:
             return opening
         if interaction_type == InteractionType.META.value:
             return (
-                "我是你的采购入库协同 Agent。"
-                "我不只做查询摘要，也会按当前数据帮你拆业务卡点、风险优先级和供应商履约问题；"
-                "你情绪着急或不确定时，也可以直接把问题丢给我，我会陪你一步步往下看。"
+                "我是你的采购入库协同分析伙伴。"
+                "聊业务时，我会帮你看订单卡点、预警优先级和供应商履约；"
+                "不聊业务时，也可以正常和我说话，我会按你的问题接着聊。"
             )
-        return "我需要一个更具体的业务对象，比如订单号、供应商ID，或者一个明确的扫描范围。"
+        return "我在，你可以直接和我聊。如果要看业务问题，把订单号、供应商或风险范围发我就行。"
 
     async def _focused_answer(self, selected_context: dict, answer_card: dict, message: str, response_policy: dict) -> str:
         draft = self._build_answer_draft(selected_context, answer_card, message)
         fallback = self._fallback_answer(draft, response_policy)
+
+        if self._should_return_fast_answer(selected_context, response_policy):
+            return self._sanitize_answer(fallback)
 
         if not self._should_use_llm(selected_context):
             return self._sanitize_answer(fallback)
@@ -95,6 +98,13 @@ class BusinessAnswerGenerateNode:
         if llm_answer:
             return llm_answer
         return self._sanitize_answer(fallback)
+
+    def _should_return_fast_answer(self, selected_context: dict, response_policy: dict) -> bool:
+        if selected_context.get("answerMode") == "CLARIFY":
+            return True
+        if response_policy.get("speechAct") in {"ASK_ACTION", "ASK_OWNER", "COMPLAINT", "THANKS", "GREETING"}:
+            return True
+        return selected_context.get("intent") in {"ORDER_DIAGNOSIS", "WARNING_SCAN", "SUPPLIER_SCORE"}
 
     def _should_use_llm(self, selected_context: dict) -> bool:
         if selected_context.get("useLlm") is False:
@@ -107,14 +117,18 @@ class BusinessAnswerGenerateNode:
 
     async def _generate_with_llm(self, selected_context: dict, draft: dict, response_policy: dict) -> str | None:
         system_prompt = (
-            "你是采购入库协同业务 Agent，只负责把结构化业务事实转成用户能直接执行的中文回答。"
-            "必须遵守：1. 只使用输入事实，不编造人名、时间、数量；"
+            "你是采购入库协同业务 Agent，不修改任何业务数据，只负责分析、解释和陪用户一起看问题。"
+            "你必须遵守："
+            "1. 只使用输入事实，不编造人名、时间、数量、状态；"
             "2. 用户问什么就答什么，不展开成长报告；"
-            "3. 如果事实不足，明确说边界；"
+            "3. 如果事实不足，明确告诉用户缺什么，并给出下一步需要补充的信息；"
             "4. 不输出内部码、字段名、JSON、Markdown 标题；"
-            "5. 回答结构按“结论 -> 关键依据 -> 下一步”自然组织，缺哪段就省略；"
-            "6. 要有专属业务伙伴的承接感，但不要油腻、不要空泛安慰。"
+            "5. 回答结构自然遵循：先接住用户 -> 给结论 -> 说依据 -> 给下一步；"
+            "6. 如果 responsePolicy.shouldEmpathizeFirst=true，开头先用一句短句承接用户情绪；"
+            "7. 如果用户只是感谢或打招呼，不要强行输出业务分析；"
+            "8. 语气像可靠的业务伙伴：稳、具体、不过度安慰、不油腻。"
         )
+
         user_prompt = self._build_llm_prompt(selected_context, draft, response_policy)
 
         try:
@@ -142,30 +156,30 @@ class BusinessAnswerGenerateNode:
         )
 
     def _build_answer_draft(self, selected_context: dict, answer_card: dict, message: str) -> dict:
+        if selected_context.get("answerMode") == "CLARIFY":
+            facts = selected_context.get("facts") or {}
+            missing_object = facts.get("missingObject") or "业务对象"
+            return {
+                "userQuestion": message,
+                "answerGoal": "提示用户补充必要业务对象",
+                "conclusion": f"可以，我来帮你看。不过这类问题需要先定位到具体的{missing_object}。",
+                "reasons": [selected_context.get("summary") or "当前上下文还不足，不能安全判断。"],
+                "unknowns": [f"缺少{missing_object}。"],
+                "nextActions": [f"你把{missing_object}发我，我就能继续分析原因、责任方和下一步。"],
+            }
+
         if answer_card:
             return self._draft_from_answer_card(answer_card, selected_context, message)
-
-        intent = selected_context.get("intent")
-        if intent == "ORDER_DIAGNOSIS":
-            return self._order_answer_draft(selected_context, message)
-        if intent == "WARNING_SCAN":
-            return self._warning_answer_draft(selected_context, message)
-        if intent == "SUPPLIER_SCORE":
-            return self._supplier_answer_draft(selected_context, message)
-
-        return {
-            "userQuestion": message,
-            "answerGoal": "提示用户补充业务对象",
-            "conclusion": selected_context.get("summary") or "当前问题暂时无法生成明确回答。",
-            "reasons": [],
-            "unknowns": [],
-            "nextActions": [],
-        }
 
     def _draft_from_answer_card(self, answer_card: dict, selected_context: dict, message: str) -> dict:
         question_focus = answer_card.get("questionFocus") or selected_context.get("questionFocus")
         instruction = selected_context.get("instruction") or ""
         answer_goal = instruction or self._answer_goal_by_focus(question_focus)
+
+        if answer_card.get("intent") == "ORDER_DIAGNOSIS" and self._asks_for_urge_script(message):
+            script_draft = self._order_urge_script_draft(answer_card, selected_context, message)
+            if script_draft:
+                return script_draft
 
         reasons = list(answer_card.get("reasons") or [])
         evidence = list(answer_card.get("evidence") or [])
@@ -182,6 +196,37 @@ class BusinessAnswerGenerateNode:
             "unknowns": self._dedupe_texts(answer_card.get("unknowns") or []),
             "nextActions": self._dedupe_texts(answer_card.get("nextActions") or []),
             "toneHint": answer_card.get("companionHint"),
+        }
+
+    def _asks_for_urge_script(self, message: str) -> bool:
+        return self._contains_any(message, ["催办", "话术", "发给", "沟通", "提醒", "怎么说"])
+
+    def _order_urge_script_draft(self, answer_card: dict, selected_context: dict, message: str) -> dict | None:
+        facts = selected_context.get("facts") or {}
+        responsibility = facts.get("responsibility") or {}
+        next_action = facts.get("nextAction") or {}
+
+        order_no = facts.get("orderNo") or answer_card.get("bizKey") or "这张订单"
+        owner_name = responsibility.get("ownerUserName") or responsibility.get("ownerRoleName") or "采购负责人"
+        action_text = next_action.get("actionText") or "请先联系供应商确认发货时间，到货后再通知仓库登记到货。"
+        block_reason = facts.get("blockReason") or "当前还没有到货记录"
+        block_reason = str(block_reason).strip().rstrip("。；;")
+
+        script = (
+            f"{owner_name}，麻烦你跟进一下 {order_no}：{block_reason}。"
+            f"请先联系供应商确认具体发货时间，并把预计到货时间同步出来；到货后再通知仓库登记到货。"
+        )
+
+        return {
+            "userQuestion": message,
+            "intent": answer_card.get("intent"),
+            "questionFocus": answer_card.get("questionFocus"),
+            "answerGoal": "给出可直接发送的催办话术",
+            "conclusion": f"可以，给 {owner_name} 直接发这句：\n{script}",
+            "reasons": [],
+            "unknowns": [],
+            "nextActions": ["发出后重点确认两个信息：预计发货时间、预计到货时间。"],
+            "toneHint": "输出要像能直接复制发送的业务沟通话术。",
         }
 
     def _answer_goal_by_focus(self, focus: str | None) -> str:
@@ -633,3 +678,6 @@ class BusinessAnswerGenerateNode:
     def _join_points(self, values: list[str]) -> str:
         cleaned = [str(value or "").strip().rstrip("。；;") for value in values if str(value or "").strip()]
         return "；".join(cleaned)
+
+    def _contains_any(self, text: str, words: list[str]) -> bool:
+        return any(word in (text or "") for word in words)

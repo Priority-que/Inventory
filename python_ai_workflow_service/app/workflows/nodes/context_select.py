@@ -7,6 +7,8 @@ class ContextSelectNode:
         interaction_type = str(state.get(WorkflowStateKeys.INTERACTION_TYPE, InteractionType.BUSINESS.value))
         intent = str(state.get(WorkflowStateKeys.INTENT, WorkflowIntent.UNKNOWN.value))
         plan = dict(state.get(WorkflowStateKeys.ANSWER_PLAN, {}) or {})
+        scope_status = str(state.get(WorkflowStateKeys.SCOPE_STATUS, "") or "")
+        scope_reason = str(state.get(WorkflowStateKeys.SCOPE_REASON, "") or "")
 
         if interaction_type != InteractionType.BUSINESS.value:
             selected = SelectedContext(
@@ -19,6 +21,22 @@ class ContextSelectNode:
                 useLlm=plan.get("useLlm", False),
                 summary="非业务问题",
                 facts={},
+            )
+        elif scope_status == "MISSING":
+            selected = SelectedContext(
+                interactionType=InteractionType.CLARIFY.value,
+                intent=intent,
+                questionFocus="CLARIFY",
+                answerMode="CLARIFY",
+                bizType=state.get(WorkflowStateKeys.BIZ_TYPE),
+                bizKey=None,
+                useLlm=False,
+                summary=scope_reason or "我需要你补充一下业务对象。",
+                facts={
+                    "scopeReason": scope_reason,
+                    "missingObject": self._missing_object_name(intent),
+                },
+                instruction="请提示用户补充必要的业务对象，不要编造业务结论。",
             )
         elif intent == WorkflowIntent.ORDER_DIAGNOSIS.value:
             selected = self._select_order_context(state, plan)
@@ -38,7 +56,6 @@ class ContextSelectNode:
                 summary="信息不足",
                 facts={},
             )
-
         return {WorkflowStateKeys.SELECTED_CONTEXT: selected.model_dump(by_alias=True)}
 
     def _select_order_context(self, state: dict, plan: dict) -> SelectedContext:
@@ -163,3 +180,10 @@ class ContextSelectNode:
             facts=facts,
             instruction=instruction_map.get(focus, "按用户问题回答。"),
         )
+
+    def _missing_object_name(self, intent: str) -> str:
+        if intent == WorkflowIntent.ORDER_DIAGNOSIS.value:
+            return "采购订单号"
+        if intent == WorkflowIntent.SUPPLIER_SCORE.value:
+            return "供应商"
+        return "业务对象"

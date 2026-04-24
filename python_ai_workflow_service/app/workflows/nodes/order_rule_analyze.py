@@ -3,9 +3,14 @@ from app.workflows.state import WorkflowStateKeys
 
 class OrderRuleAnalyzeNode:
     async def __call__(self, state: dict) -> dict:
+        existing_error = str(state.get(WorkflowStateKeys.ERROR_MESSAGE, "") or "")
+        if existing_error:
+            return {WorkflowStateKeys.ERROR_MESSAGE: existing_error}
+
         context = dict(state.get(WorkflowStateKeys.ORDER_CONTEXT, {}) or {})
         if not context:
-            return {WorkflowStateKeys.ERROR_MESSAGE: "订单上下文为空"}
+            return {WorkflowStateKeys.ERROR_MESSAGE: "订单上下文为空，请检查 Java 订单上下文接口是否返回 exists=true。"}
+
 
         order = context.get("order") or {}
         stage = context.get("stage") or {}
