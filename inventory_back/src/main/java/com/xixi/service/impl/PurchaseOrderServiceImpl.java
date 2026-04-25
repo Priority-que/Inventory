@@ -3,6 +3,7 @@ package com.xixi.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.xixi.annotation.OperLogRecord;
 import com.xixi.entity.PurchaseOrder;
 import com.xixi.entity.PurchaseOrderItem;
 import com.xixi.entity.PurchaseRequestItem;
@@ -46,18 +47,23 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     public IPage<PurchaseOrderVO> getPurchaseOrderPage(PurchaseOrderQuery purchaseOrderQuery) {
         IPage<PurchaseOrderVO> page = new Page<>(purchaseOrderQuery.getPageNum(), purchaseOrderQuery.getPageSize());
-        IPage<PurchaseOrderVO> result = purchaseOrderMapper.getPurchaseOrderPage(page, purchaseOrderQuery);
-        return result;
+        return purchaseOrderMapper.getPurchaseOrderPage(page, purchaseOrderQuery);
     }
 
     @Override
     public PurchaseOrderVO getPurchaseOrderById(Long id) {
-        PurchaseOrderVO purchaseOrderVO = purchaseOrderMapper.getPurchaseOrderById(id);
-        return purchaseOrderVO;
+        return purchaseOrderMapper.getPurchaseOrderById(id);
     }
 
     @Transactional
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "采购订单",
+            operationType = "CREATE",
+            operationDesc = "新增采购订单",
+            bizType = "PURCHASE_ORDER"
+    )
     public Result addPurchaseOrder(PurchaseOrderDTO purchaseOrderDTO) {
         Long currentUserId = getCurrentUserId();
         if (currentUserId == null) {
@@ -148,7 +154,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (purchaseOrderMapper.insert(purchaseOrder) <= 0) {
             return Result.error("添加采购订单主表失败");
         }
-
         for (PurchaseRequestItem purchaseRequestItem : purchaseRequestItems) {
             PurchaseOrderItemCreateDTO item = dtoItemMap.get(purchaseRequestItem.getId());
             PurchaseOrderItem purchaseOrderItem = new PurchaseOrderItem();
@@ -178,10 +183,18 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return Result.error("回写采购申请状态失败");
         }
-        return Result.success("添加采购订单主表成功");
+        purchaseOrderDTO.setId(purchaseOrder.getId());
+        return Result.success("添加采购订单成功");
     }
 
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "采购订单",
+            operationType = "UPDATE",
+            operationDesc = "修改采购订单",
+            bizType = "PURCHASE_ORDER"
+    )
     public Result updatePurchaseOrder(PurchaseOrderDTO purchaseOrderDTO) {
         if (purchaseOrderDTO.getId() == null) {
             return Result.error("采购订单ID不能为空");
@@ -199,13 +212,20 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         purchaseOrder.setPlanDate(purchaseOrderDTO.getPlanDate());
         purchaseOrder.setRemark(purchaseOrderDTO.getRemark());
         if (purchaseOrderMapper.updateById(purchaseOrder) > 0) {
-            return Result.success("修改采购订单主表基本信息成功");
+            return Result.success("修改采购订单基本信息成功");
         }
-        return Result.error("修改采购订单基本信息主表失败");
+        return Result.error("修改采购订单基本信息失败");
     }
 
     @Transactional
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "采购订单",
+            operationType = "CANCEL",
+            operationDesc = "取消采购订单",
+            bizType = "PURCHASE_ORDER"
+    )
     public Result cancelPurchaseOrder(PurchaseOrderDTO purchaseOrderDTO) {
         if (purchaseOrderDTO.getId() == null) {
             return Result.error("采购订单ID不能为空");
@@ -234,6 +254,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     @Transactional
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "采购订单",
+            operationType = "CLOSE",
+            operationDesc = "关闭采购订单",
+            bizType = "PURCHASE_ORDER"
+    )
     public Result closePurchaseOrder(PurchaseOrderDTO purchaseOrderDTO) {
         if (purchaseOrderDTO.getId() == null) {
             return Result.error("采购订单ID不能为空");

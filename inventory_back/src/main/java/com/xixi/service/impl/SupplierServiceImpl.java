@@ -22,11 +22,11 @@ public class SupplierServiceImpl implements SupplierService {
     private final SupplierMapper supplierMapper;
 
     @Override
-    public IPage<SupplierVO> getSupplierPage(SupplierPageQuery supplierPageQuery){
-        IPage<SupplierVO> supplierVOIPage =new Page<>(supplierPageQuery.getPageNum(),supplierPageQuery.getPageSize());
-        IPage<SupplierVO> page = supplierMapper.getSupplierPage(supplierVOIPage,supplierPageQuery);
-        return page;
+    public IPage<SupplierVO> getSupplierPage(SupplierPageQuery supplierPageQuery) {
+        IPage<SupplierVO> supplierVOIPage = new Page<>(supplierPageQuery.getPageNum(), supplierPageQuery.getPageSize());
+        return supplierMapper.getSupplierPage(supplierVOIPage, supplierPageQuery);
     }
+
     @Override
     @OperLogRecord(
             logType = "BUSINESS",
@@ -35,12 +35,13 @@ public class SupplierServiceImpl implements SupplierService {
             operationDesc = "新增供应商",
             bizType = "SUPPLIER"
     )
-    public Result addSupplier(SupplierDTO supplierDTO){
-        Supplier supplier= BeanUtil.copyProperties(supplierDTO,Supplier.class);
-        if(supplierMapper.insert(supplier)>0){
+    public Result addSupplier(SupplierDTO supplierDTO) {
+        Supplier supplier = BeanUtil.copyProperties(supplierDTO, Supplier.class);
+        if (supplierMapper.insert(supplier) > 0) {
+            supplierDTO.setId(supplier.getId());
             return Result.success("添加供应商成功！");
         }
-        return  Result.success("添加供应商失败！");
+        return Result.error("添加供应商失败！");
     }
 
     @Override
@@ -52,19 +53,25 @@ public class SupplierServiceImpl implements SupplierService {
             bizType = "SUPPLIER"
     )
     public Result updateSupplier(SupplierDTO supplierDTO) {
-        Supplier supplier= BeanUtil.copyProperties(supplierDTO,Supplier.class);
-        if(supplierMapper.updateById(supplier)>0){
+        Supplier supplier = BeanUtil.copyProperties(supplierDTO, Supplier.class);
+        if (supplierMapper.updateById(supplier) > 0) {
             return Result.success("修改供应商信息成功！");
         }
         return Result.error("修改供应商信息失败！");
     }
 
-
     @Override
-    public Result deleteSupplier(List<Integer> ids){
-        if(supplierMapper.deleteByIds(ids)>0){
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "供应商管理",
+            operationType = "DELETE",
+            operationDesc = "删除供应商",
+            bizType = "SUPPLIER"
+    )
+    public Result deleteSupplier(List<Integer> ids) {
+        if (supplierMapper.deleteByIds(ids) > 0) {
             return Result.success("删除供应商成功！");
         }
-        return Result.error("删除供应商失败!");
+        return Result.error("删除供应商失败！");
     }
 }

@@ -1,5 +1,6 @@
 package com.xixi.service.impl;
 
+import com.xixi.annotation.OperLogRecord;
 import com.xixi.config.JwtProperties;
 import com.xixi.entity.User;
 import com.xixi.mapper.UserMapper;
@@ -34,11 +35,18 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
+    @OperLogRecord(
+            logType = "LOGIN",
+            moduleName = "认证管理",
+            operationType = "LOGIN",
+            operationDesc = "用户登录",
+            bizType = "USER"
+    )
     public Result login(LoginDTO loginDTO) {
-        if(loginDTO.getUsername()==null || loginDTO.getUsername().isEmpty()){
+        if (loginDTO.getUsername() == null || loginDTO.getUsername().isEmpty()) {
             return Result.error("用户名不能为空");
         }
-        if(loginDTO.getPassword()==null || loginDTO.getPassword().isEmpty()){
+        if (loginDTO.getPassword() == null || loginDTO.getPassword().isEmpty()) {
             return Result.error("密码不能为空");
         }
         Authentication authentication = authenticationManager.authenticate(
@@ -50,7 +58,7 @@ public class AuthServiceImpl implements AuthService {
         LoginVO loginVO = new LoginVO();
         loginVO.setToken(token);
         loginVO.setTokenType(jwtProperties.getPrefix());
-        loginVO.setExpiresIn(jwtProperties.getExpireMinutes()*60);
+        loginVO.setExpiresIn(jwtProperties.getExpireMinutes() * 60);
         loginVO.setUserId(loginUser.getUserId());
         loginVO.setUsername(loginUser.getUsername());
         loginVO.setName(loginUser.getName());
@@ -59,18 +67,25 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @OperLogRecord(
+            logType = "LOGOUT",
+            moduleName = "认证管理",
+            operationType = "LOGOUT",
+            operationDesc = "用户退出登录",
+            bizType = "USER"
+    )
     public Result logout(HttpServletRequest request) {
         String token = getTokenFromRequest(request);
-        if(token == null){
-            return Result.error(401,"未登录或登录已失效");
+        if (token == null) {
+            return Result.error(401, "未登录或登录已失效");
         }
-        if(!jwtTokenService.validateToken(token)){
-            return Result.error(401,"未登录或登录已失效");
+        if (!jwtTokenService.validateToken(token)) {
+            return Result.error(401, "未登录或登录已失效");
         }
         String jti = jwtTokenService.getJti(token);
         long remainingMillis = jwtTokenService.getRemainingMillis(token);
-        if(jti !=null && remainingMillis > 0){
-            tokenBlacklistService.blacklist(jti,remainingMillis);
+        if (jti != null && remainingMillis > 0) {
+            tokenBlacklistService.blacklist(jti, remainingMillis);
         }
         return Result.success("退出登录成功");
     }
@@ -78,8 +93,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public Result me() {
         LoginUser loginUser = SecurityUtils.getCurrentLoginUser();
-        if(loginUser == null){
-            return Result.error(401,"未登录或登录已失效");
+        if (loginUser == null) {
+            return Result.error(401, "未登录或登录已失效");
         }
         CurrentUserVO currentUserVO = new CurrentUserVO();
         currentUserVO.setId(loginUser.getUserId());
@@ -92,43 +107,51 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "认证管理",
+            operationType = "UPDATE",
+            operationDesc = "修改密码",
+            bizType = "USER"
+    )
     public Result changePassword(ChangePasswordDTO changePasswordDTO, HttpServletRequest request) {
         LoginUser loginUser = SecurityUtils.getCurrentLoginUser();
-        if(loginUser ==null){
-            return Result.error(401,"未登录或登录已失效");
+        if (loginUser == null) {
+            return Result.error(401, "未登录或登录已失效");
         }
-        if(changePasswordDTO.getOldPassword()==null || changePasswordDTO.getOldPassword().isEmpty()){
+        if (changePasswordDTO.getOldPassword() == null || changePasswordDTO.getOldPassword().isEmpty()) {
             return Result.error("旧密码不能为空");
         }
-        if(changePasswordDTO.getNewPassword()==null || changePasswordDTO.getNewPassword().isEmpty()){
+        if (changePasswordDTO.getNewPassword() == null || changePasswordDTO.getNewPassword().isEmpty()) {
             return Result.error("新密码不能为空");
         }
-        if(!changePasswordDTO.getNewPassword().equals(changePasswordDTO.getConfirmPassword())){
+        if (!changePasswordDTO.getNewPassword().equals(changePasswordDTO.getConfirmPassword())) {
             return Result.error("新密码和确认密码不一致");
         }
         User user = userMapper.selectById(loginUser.getUserId());
-        if(user == null){
+        if (user == null) {
             return Result.error("用户不存在");
         }
-        if(!passwordEncoder.matches(changePasswordDTO.getOldPassword(),user.getPassword())){
+        if (!passwordEncoder.matches(changePasswordDTO.getOldPassword(), user.getPassword())) {
             return Result.error("旧密码错误");
         }
         User updateUser = new User();
         updateUser.setId(user.getId());
         updateUser.setPassword(passwordEncoder.encode(changePasswordDTO.getNewPassword()));
-        if(userMapper.updateById(updateUser) <= 0){
+        if (userMapper.updateById(updateUser) <= 0) {
             return Result.error("修改密码失败");
         }
         String token = getTokenFromRequest(request);
-        if(token !=null && jwtTokenService.validateToken(token)){
+        if (token != null && jwtTokenService.validateToken(token)) {
             String jti = jwtTokenService.getJti(token);
             long remainingMillis = jwtTokenService.getRemainingMillis(token);
-            if(jti !=null && remainingMillis > 0){
-                tokenBlacklistService.blacklist(jti,remainingMillis);
+            if (jti != null && remainingMillis > 0) {
+                tokenBlacklistService.blacklist(jti, remainingMillis);
             }
         }
         return Result.success("修改密码成功");
     }
+
     private String getTokenFromRequest(HttpServletRequest request) {
         String header = request.getHeader(jwtProperties.getHeader());
         if (header == null || !header.startsWith(jwtProperties.getPrefix() + " ")) {

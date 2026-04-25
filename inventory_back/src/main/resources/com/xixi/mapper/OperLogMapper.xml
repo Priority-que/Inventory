@@ -21,6 +21,9 @@
             <if test="q.operatorName!=null and q.operatorName!=''">
                 and operator_name like concat('%',#{q.operatorName},'%')
             </if>
+            <if test="q.operatorId!=null">
+                and operator_id=#{q.operatorId}
+            </if>
             <if test="q.successFlag!=null">
                 and success_flag=#{q.successFlag}
             </if>

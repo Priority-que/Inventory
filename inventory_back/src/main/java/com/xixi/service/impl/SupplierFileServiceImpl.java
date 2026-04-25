@@ -1,5 +1,6 @@
 package com.xixi.service.impl;
 
+import com.xixi.annotation.OperLogRecord;
 import com.xixi.entity.Supplier;
 import com.xixi.entity.SupplierFile;
 import com.xixi.mapper.SupplierFileMapper;
@@ -23,6 +24,13 @@ public class SupplierFileServiceImpl implements SupplierFileService {
 
     @Override
     @Transactional
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "供应商附件",
+            operationType = "UPLOAD",
+            operationDesc = "上传供应商附件",
+            bizType = "SUPPLIER"
+    )
     public Result uploadSupplierFile(Long supplierId, String fileType, MultipartFile file, String remark) {
         if (supplierId == null) {
             return Result.error("供应商id不能为空！");
@@ -51,7 +59,7 @@ public class SupplierFileServiceImpl implements SupplierFileService {
         String objectKey;
         try {
             objectKey = ossService.upload(file, "supplier");
-        } catch (Exception e) {
+        } catch (Exception ex) {
             return Result.error("上传OSS失败！");
         }
 
@@ -77,6 +85,5 @@ public class SupplierFileServiceImpl implements SupplierFileService {
             throw new RuntimeException("更新供应商附件轮次失败！");
         }
         return Result.success("上传供应商附件成功！", supplierFile.getId());
-
     }
 }
