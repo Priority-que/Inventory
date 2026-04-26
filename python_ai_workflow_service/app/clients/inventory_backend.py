@@ -170,11 +170,6 @@ class InventoryBackendClient:
                 return supplier
         return None
 
-    async def rag_search(self, payload: dict[str, Any], authorization: str) -> list[dict[str, Any]]:
-        data = await self._request("POST", "/agent/rag/search", authorization, json=payload)
-        return data if isinstance(data, list) else []
-
-
     async def get_agent_order_context(self, order_no: str, authorization: str) -> dict[str, Any] | None:
         data = await self._request("GET", f"/agent/context/order/{order_no}", authorization)
         return data if isinstance(data, dict) else None

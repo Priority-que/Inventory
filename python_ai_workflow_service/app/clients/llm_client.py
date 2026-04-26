@@ -9,7 +9,8 @@ class LLMClient:
         self.settings = get_settings()
 
     def is_configured(self) -> bool:
-        return bool(self.settings.model_api_key) and self.settings.model_api_key not in (
+        api_key = self._api_key()
+        return bool(api_key) and api_key not in (
             "replace-with-your-api-key",
             "replace-with-your-dashscope-api-key",
         )
@@ -28,7 +29,7 @@ class LLMClient:
             ],
         }
         headers = {
-            "Authorization": f"Bearer {self.settings.model_api_key}",
+            "Authorization": f"Bearer {self._api_key()}",
             "Content-Type": "application/json",
         }
 
@@ -55,3 +56,6 @@ class LLMClient:
         if not content:
             raise ApiException(code=500, msg=f"模型服务响应缺少 content：{body}", http_status_code=500)
         return content
+
+    def _api_key(self) -> str:
+        return self.settings.model_api_key or self.settings.ai_dashscope_api_key

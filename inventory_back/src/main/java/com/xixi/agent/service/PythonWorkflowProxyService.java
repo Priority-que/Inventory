@@ -23,6 +23,8 @@ import java.nio.charset.StandardCharsets;
 @Service
 public class PythonWorkflowProxyService {
     private static final String WORKFLOW_EXECUTE_PATH = "/agent/workflow/execute";
+    private static final String RAG_IMPORT_PATH = "/agent/rag/import";
+    private static final String RAG_SEARCH_PATH = "/agent/rag/search";
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -41,9 +43,21 @@ public class PythonWorkflowProxyService {
     }
 
     public ResponseEntity<String> executeWorkflow(WorkflowAgentRequest request, String authorization) {
+        return postJson(WORKFLOW_EXECUTE_PATH, request, authorization);
+    }
+
+    public ResponseEntity<String> importRagKnowledge(Object request, String authorization) {
+        return postJson(RAG_IMPORT_PATH, request, authorization);
+    }
+
+    public ResponseEntity<String> searchRagKnowledge(Object request, String authorization) {
+        return postJson(RAG_SEARCH_PATH, request, authorization);
+    }
+
+    private ResponseEntity<String> postJson(String path, Object request, String authorization) {
         try {
             return restClient.post()
-                    .uri(WORKFLOW_EXECUTE_PATH)
+                    .uri(path)
                     .contentType(MediaType.APPLICATION_JSON)
                     .headers(headers -> {
                         if (StringUtils.hasText(authorization)) {
