@@ -1,0 +1,51 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.agent.mapper.AgentQueryMapper">
+    <select id="getOrderSnapshotByOrderNo" resultType="com.xixi.agent.vo.OrderSnapshotVO">
+        select po.id orderId,
+               po.order_no orderNo,
+               po.status,
+               po.supplier_id supplierId,
+               s.name supplierName,
+               coalesce(sum(poi.order_number),0) as totalOrderNumber,
+               greatest(
+                       coalesce(sum(poi.arrived_number),0),
+                       coalesce((
+                           select sum(a.arrival_number)
+                           from arrival a
+                           where a.order_id = po.id
+                             and a.deleted = 0
+                       ),0)
+               ) as totalArriveNumber,
+               greatest(
+                       coalesce(sum(poi.inbound_number),0),
+                       coalesce((
+                           select sum(i.inbound_number)
+                           from inbound i
+                                    left join arrival a on i.arrival_id = a.id
+                           where a.order_id = po.id
+                             and i.deleted = 0
+                             and a.deleted = 0
+                       ),0)
+               ) as totalInboundNumber,
+               (
+                     select  count(1)
+                     from  arrival a
+                     where  a.order_id = po.id
+                     and a.deleted =0
+                ) as arrivalCount,
+               (    select  count(1) from
+                    inbound i
+                    left join arrival a on i.arrival_id = a.id
+                    where a.order_id=po.id
+                    and i.deleted=0
+                    and a.deleted=0
+               )as inboundCount
+        from purchase_order po left join supplier s on po.supplier_id = s.id
+             left join purchase_order_item poi on po.id = poi.order_id and poi.deleted =0
+        where po.order_no = #{orderNo}
+          and po.deleted = 0
+        group by po.id, po.order_no, po.status, po.supplier_id, s.name
+    </select>
+</mapper>

@@ -1,0 +1,78 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.agent.mapper.AgentWarningMapper">
+    <select id="getWaitConfirmOverdueOrders" resultType="com.xixi.agent.vo.WarningSnapshotVO">
+        select  po.id bizId,po.order_no bizNo,po.status status,po.supplier_id supplierId,
+                s.name supplierName,po.create_time lastOperateTime,timestampdiff(day,po.create_time,now()) overdueDays
+        from purchase_order po
+            left join supplier s on po.supplier_id = s.id
+        where po.deleted =0
+            and po.status = 'WAIT_CONFIRM'
+            and timestampdiff(day,po.create_time,now()) >= #{days}
+    </select>
+    <select id="getInProgressWithoutArrivalOrders" resultType="com.xixi.agent.vo.WarningSnapshotVO">
+        select po.id as bizId,po.order_no as bizNo,po.status as status,po.supplier_id as supplierId,
+               s.name as supplierName,po.confirm_time as lastOperateTime,timestampdiff(day, po.confirm_time, now()) as overdueDays
+        from purchase_order po
+                 left join supplier s on po.supplier_id = s.id
+        where po.deleted = 0
+          and po.status = 'IN_PROGRESS'
+          and timestampdiff(day, po.confirm_time, now()) >= #{days}
+          and not exists (
+            select 1
+            from arrival a
+            where a.order_id = po.id
+              and a.deleted = 0
+        )
+    </select>
+    <select id="getPartialArrivalStuckOrders" resultType="com.xixi.agent.vo.WarningSnapshotVO">
+        select po.id as bizId,
+               po.order_no as bizNo,
+               po.status as status,
+               po.supplier_id as supplierId,
+               s.name as supplierName,
+               max(a.create_time) as lastOperateTime,
+               timestampdiff(day, max(a.create_time), now()) as overdueDays
+        from purchase_order po
+                 left join supplier s on po.supplier_id = s.id
+                 left join arrival a on a.order_id = po.id and a.deleted = 0
+        where po.deleted = 0
+          and po.status = 'PARTIAL_ARRIVAL'
+        group by po.id, po.order_no, po.status, po.supplier_id, s.name
+        having timestampdiff(day, max(a.create_time), now()) >= #{days}
+    </select>
+    <select id="getArrivedWithoutInboundRecords" resultType="com.xixi.agent.vo.WarningSnapshotVO">
+        select a.id as bizId,
+               a.arrival_no as bizNo,
+               a.status as status,
+               a.warehouse_id as warehouseId,
+               w.name as warehouseName,
+               a.create_time as lastOperateTime,
+               timestampdiff(day, a.create_time, now()) as overdueDays
+        from arrival a
+                 left join warehouse w on a.warehouse_id = w.id
+        where a.deleted = 0
+          and timestampdiff(day, a.create_time, now()) >= #{days}
+          and not exists (
+            select 1
+            from inbound i
+            where i.arrival_id = a.id
+              and i.deleted = 0
+        )
+    </select>
+    <select id="getPendingInboundOverdueRecords" resultType="com.xixi.agent.vo.WarningSnapshotVO">
+        select i.id as bizId,
+               i.inbound_no as bizNo,
+               i.status as status,
+               i.warehouse_id as warehouseId,
+               w.name as warehouseName,
+               i.create_time as lastOperateTime,
+               timestampdiff(day, i.create_time, now()) as overdueDays
+        from inbound i
+                 left join warehouse w on i.warehouse_id = w.id
+        where i.deleted = 0
+          and i.status = 'PENDING'
+          and timestampdiff(day, i.create_time, now()) >= #{days}
+    </select>
+</mapper>

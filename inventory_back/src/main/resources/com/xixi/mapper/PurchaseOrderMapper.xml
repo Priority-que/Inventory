@@ -41,4 +41,11 @@
         left join user u on po.purchaser_id = u.id
         where po.id = #{id}
     </select>
+    <select id="lockById" resultType="Long">
+        select id
+        from purchase_order
+        where id = #{id}
+          and deleted = 0
+        for update
+    </select>
 </mapper>

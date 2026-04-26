@@ -1,0 +1,15 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.ArrivalItemMapper">
+    <select id="getArrivalItemByArrivalId" resultType="com.xixi.pojo.vo.arrival.ArrivalItemVO">
+        select id, arrival_id, order_item_id, material_id, material_code,
+               material_name, specification, unit, arrival_number, qualified_number,
+               unqualified_number, abnormal_note, sort_number, remark, create_time,
+               update_time, deleted
+        from arrival_item
+        where arrival_id = #{arrivalId}
+          and deleted = 0
+        order by sort_number asc, id asc
+    </select>
+</mapper>

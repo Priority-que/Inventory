@@ -1,0 +1,46 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.ArrivalMapper">
+    <select id="getArrivalPage" resultType="com.xixi.pojo.vo.arrival.ArrivalVO">
+        select a.id,a.arrival_no,a.order_id,a.warehouse_id,a.arrival_date,a.arrival_number,a.qualified_number,
+               a.unqualified_number,a.status,a.abnormal_note,a.operator_id,a.remark,a.create_time,
+               a.update_time,a.deleted,po.order_no orderNo,w.name warehouseName
+        from arrival a left join purchase_order po on a.order_id = po.id
+                        left join warehouse w on a.warehouse_id = w.id
+        <where>
+            a.deleted = 0
+            <if test="q.arrivalNo != null and q.arrivalNo != ''">
+                and a.arrival_no like concat('%',#{q.arrivalNo},'%')
+            </if>
+            <if test="q.orderNo != null and q.orderNo != ''">
+                and po.order_no like concat('%',#{q.orderNo},'%')
+            </if>
+            <if test="q.warehouseName != null and q.warehouseName != ''">
+                and w.name like concat ('%',#{q.warehouseName},'%')
+            </if>
+            <if test="q.arrivalDateBegin != null and q.arrivalDateEnd !=null">
+                and a.arrival_date between #{q.arrivalDateBegin} and #{q.arrivalDateEnd}
+            </if>
+            <if test="q.status !=null and q.status !=''">
+                and a.status =#{q.status}
+            </if>
+        </where>
+        order by a.create_time desc, a.id desc
+    </select>
+    <select id="getArrivalById" resultType="com.xixi.pojo.vo.arrival.ArrivalVO">
+        select a.id,a.arrival_no,a.order_id,a.warehouse_id,a.arrival_date,a.arrival_number,a.qualified_number,
+               a.unqualified_number,a.status,a.abnormal_note,a.operator_id,a.remark,a.create_time,
+               a.update_time,a.deleted,po.order_no orderNo,w.name warehouseName
+        from arrival a left join purchase_order po on a.order_id = po.id
+                       left join warehouse w on a.warehouse_id = w.id
+        where a.id = #{arrivalId} and a.deleted =0
+    </select>
+    <select id="lockById" resultType="Long">
+        select id
+        from arrival
+        where id = #{arrivalId}
+          and deleted = 0
+        for update
+    </select>
+</mapper>

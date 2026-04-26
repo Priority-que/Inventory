@@ -33,3 +33,12 @@ build/
 # Temporary files
 tmp/
 temp/
+
+# Python
+.venv/
+**/.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
