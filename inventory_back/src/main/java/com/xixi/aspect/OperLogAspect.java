@@ -69,15 +69,21 @@ public class OperLogAspect {
             HttpServletRequest request = attributes == null ? null : attributes.getRequest();
             LoginUser loginUser = SecurityUtils.getCurrentLoginUser();
             List<Long> bizIds = extractBizIds(args, result, operLogRecord.bizType());
+            Long operatorId = resolveOperatorId(loginUser, result, args);
+            String operatorName = resolveOperatorName(loginUser, result, args);
+            String bizType = hasText(operLogRecord.bizType()) ? operLogRecord.bizType() : null;
+
+            // USER 类型在登出、修改密码这类场景里通常没有显式 id 参数，
+            // 此时兜底使用当前操作人的 userId 作为业务 id。
+            if (bizIds.isEmpty() && "USER".equalsIgnoreCase(bizType) && operatorId != null) {
+                bizIds.add(operatorId);
+            }
 
             if (bizIds.isEmpty()) {
                 bizIds.add(null);
             }
 
-            Long operatorId = resolveOperatorId(loginUser, result, args);
-            String operatorName = resolveOperatorName(loginUser, result, args);
             LocalDateTime now = LocalDateTime.now();
-            String bizType = hasText(operLogRecord.bizType()) ? operLogRecord.bizType() : null;
             String trimmedErrorMessage = trimErrorMessage(errorMessage);
 
             for (Long bizId : bizIds) {
