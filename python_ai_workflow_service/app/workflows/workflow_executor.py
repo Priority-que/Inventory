@@ -14,7 +14,7 @@ from app.workflows.nodes.entity_extract import EntityExtractNode
 from app.workflows.nodes.guardrail_validate import GuardrailValidateNode
 from app.workflows.nodes.intent_classify import IntentClassifyNode
 from app.workflows.nodes.knowledge_retrieve import KnowledgeRetrieveNode
-from app.workflows.nodes.load_order_context import LoadOrderContextNode
+from app.workflows.nodes.Load_order_context import LoadOrderContextNode
 from app.workflows.nodes.load_supplier_context import LoadSupplierContextNode
 from app.workflows.nodes.load_warning_context import LoadWarningContextNode
 from app.workflows.nodes.order_rule_analyze import OrderRuleAnalyzeNode

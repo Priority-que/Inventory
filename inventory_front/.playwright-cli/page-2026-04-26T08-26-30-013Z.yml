@@ -1,0 +1,166 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - button "库存管理系统" [ref=e5] [cursor=pointer]:
+        - img [ref=e8]
+        - generic [ref=e10]: 库存管理系统
+      - menubar [ref=e12]:
+        - menuitem "工作台" [ref=e13] [cursor=pointer]:
+          - img [ref=e15]
+          - generic [ref=e19]: 工作台
+        - listitem [ref=e20]:
+          - generic [ref=e21]: 核心业务
+          - list [ref=e22]:
+            - menuitem "用户管理" [ref=e23] [cursor=pointer]:
+              - img [ref=e25]
+              - generic [ref=e27]: 用户管理
+            - menuitem "物料管理" [ref=e28] [cursor=pointer]:
+              - img [ref=e30]
+              - generic [ref=e34]: 物料管理
+            - menuitem "仓库管理" [ref=e35] [cursor=pointer]:
+              - img [ref=e37]
+              - generic [ref=e39]: 仓库管理
+            - menuitem "供应商管理" [ref=e40] [cursor=pointer]:
+              - img [ref=e42]
+              - generic [ref=e45]: 供应商管理
+        - listitem [ref=e46]:
+          - generic [ref=e47]: 系统与智能
+          - list [ref=e48]:
+            - menuitem "AI 智能助手" [ref=e49] [cursor=pointer]:
+              - img [ref=e51]
+              - generic [ref=e54]: AI 智能助手
+            - menuitem "知识库管理" [ref=e55] [cursor=pointer]:
+              - img [ref=e57]
+              - generic [ref=e60]: 知识库管理
+            - menuitem "操作日志" [ref=e61] [cursor=pointer]:
+              - img [ref=e63]
+              - generic [ref=e65]: 操作日志
+      - button "系统管理员001 系统管理员" [ref=e67] [cursor=pointer]:
+        - img [ref=e70]
+        - generic [ref=e72]:
+          - generic [ref=e73]: 系统管理员001
+          - generic [ref=e74]: 系统管理员
+        - img [ref=e76]
+    - main [ref=e79]:
+      - generic [ref=e80]:
+        - generic [ref=e82]:
+          - heading "操作日志" [level=2] [ref=e83]
+          - paragraph [ref=e84]: 查看关键业务操作、访问来源和执行结果
+        - generic [ref=e85]:
+          - generic [ref=e87]:
+            - generic [ref=e88]:
+              - generic [ref=e89]: 日志类型
+              - generic [ref=e92] [cursor=pointer]:
+                - generic:
+                  - combobox "日志类型" [ref=e94]
+                  - generic [ref=e95]: 全部类型
+                - img [ref=e98]
+            - generic [ref=e100]:
+              - generic [ref=e101]: 模块名称
+              - textbox "模块名称" [ref=e105]:
+                - /placeholder: 输入模块
+            - generic [ref=e106]:
+              - generic [ref=e107]: 操作类型
+              - textbox "操作类型" [ref=e111]:
+                - /placeholder: 输入操作类型
+            - generic [ref=e112]:
+              - generic [ref=e113]: 操作人
+              - textbox "操作人" [ref=e117]:
+                - /placeholder: 输入姓名
+            - generic [ref=e118]:
+              - generic [ref=e119]: 操作人编号
+              - generic [ref=e121]:
+                - button "减少数值" [ref=e122] [cursor=pointer]:
+                  - img [ref=e124]
+                - button "增加数值" [ref=e126] [cursor=pointer]:
+                  - img [ref=e128]
+                - spinbutton "操作人编号" [ref=e132]
+            - generic [ref=e133]:
+              - generic [ref=e134]: 执行结果
+              - generic [ref=e137] [cursor=pointer]:
+                - generic:
+                  - combobox "执行结果" [ref=e139]
+                  - generic [ref=e140]: 全部结果
+                - img [ref=e143]
+            - generic [ref=e145]:
+              - generic [ref=e146]: 操作时间
+              - generic [ref=e148]:
+                - img [ref=e150]
+                - combobox "操作时间" [ref=e154]
+                - generic [ref=e155]: 至
+                - combobox "结束时间" [ref=e156]
+            - generic [ref=e158]:
+              - button "重置" [ref=e159] [cursor=pointer]:
+                - generic [ref=e160]:
+                  - img [ref=e162]
+                  - text: 重置
+              - button "查询" [ref=e164] [cursor=pointer]:
+                - generic [ref=e165]:
+                  - img [ref=e167]
+                  - text: 查询
+          - generic [ref=e170]:
+            - generic [ref=e171]:
+              - table [ref=e173]:
+                - rowgroup [ref=e191]:
+                  - row "日志编号 日志类型 模块名称 业务类型 业务记录 操作类型 操作描述 操作人编号 操作人 请求地址 请求方式 来源地址 执行结果 错误信息 操作时间 操作" [ref=e192]:
+                    - columnheader "日志编号" [ref=e193]:
+                      - generic [ref=e194]: 日志编号
+                    - columnheader "日志类型" [ref=e195]:
+                      - generic [ref=e196]: 日志类型
+                    - columnheader "模块名称" [ref=e197]:
+                      - generic [ref=e198]: 模块名称
+                    - columnheader "业务类型" [ref=e199]:
+                      - generic [ref=e200]: 业务类型
+                    - columnheader "业务记录" [ref=e201]:
+                      - generic [ref=e202]: 业务记录
+                    - columnheader "操作类型" [ref=e203]:
+                      - generic [ref=e204]: 操作类型
+                    - columnheader "操作描述" [ref=e205]:
+                      - generic [ref=e206]: 操作描述
+                    - columnheader "操作人编号" [ref=e207]:
+                      - generic [ref=e208]: 操作人编号
+                    - columnheader "操作人" [ref=e209]:
+                      - generic [ref=e210]: 操作人
+                    - columnheader "请求地址" [ref=e211]:
+                      - generic [ref=e212]: 请求地址
+                    - columnheader "请求方式" [ref=e213]:
+                      - generic [ref=e214]: 请求方式
+                    - columnheader "来源地址" [ref=e215]:
+                      - generic [ref=e216]: 来源地址
+                    - columnheader "执行结果" [ref=e217]:
+                      - generic [ref=e218]: 执行结果
+                    - columnheader "错误信息" [ref=e219]:
+                      - generic [ref=e220]: 错误信息
+                    - columnheader "操作时间" [ref=e221]:
+                      - generic [ref=e222]: 操作时间
+                    - columnheader "操作" [ref=e223]:
+                      - generic [ref=e224]: 操作
+              - generic [ref=e228]:
+                - table:
+                  - rowgroup
+                - generic [ref=e230]: 暂无数据
+            - img [ref=e233]
+          - generic [ref=e236]:
+            - generic [ref=e237]: 共 0 条
+            - generic [ref=e240] [cursor=pointer]:
+              - generic:
+                - combobox [ref=e242]
+                - generic [ref=e243]: 10条/页
+              - img [ref=e246]
+            - button "上一页" [disabled] [ref=e248]:
+              - generic:
+                - img
+            - list [ref=e249]:
+              - listitem "第 1 页" [ref=e250]: "1"
+            - button "下一页" [disabled] [ref=e251]:
+              - generic:
+                - img
+            - generic [ref=e252]:
+              - generic [ref=e253]: 前往
+              - spinbutton "页" [ref=e256]: "1"
+              - generic [ref=e257]: 页
+  - generic [ref=e258]:
+    - generic "Toggle devtools panel" [ref=e259] [cursor=pointer]:
+      - img [ref=e260]
+    - generic "Toggle Component Inspector" [ref=e265] [cursor=pointer]:
+      - img [ref=e266]

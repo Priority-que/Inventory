@@ -1,5 +1,5 @@
 from functools import lru_cache
-from pydantic import AliasChoices,Field
+from pydantic import Field
 from pydantic_settings import BaseSettings,SettingsConfigDict
 
 
@@ -16,13 +16,25 @@ class Settings(BaseSettings):
     java_backend_base_url: str = "http://localhost:8080"
     java_backend_timeout: float = 10.0
 
-    model_api_key :str =Field(
-        default="",
-        validation_alias=AliasChoices("MODEL_API_KEY","AI_DASHSCOPE_API_KEY"),
-    )
+    model_api_key: str = ""
+    ai_dashscope_api_key: str = ""
     model_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     model_name: str = "glm-5"
     model_timeout: float = 30.0
+
+    rag_embedding_model: str = "text-embedding-v3"
+    rag_embedding_timeout: float = 30.0
+    rag_index_name: str = "inventory:rag:index"
+    rag_key_prefix: str = "inventory:rag:chunk:"
+    rag_default_top_k: int = 4
+    rag_max_top_k: int = 10
+    rag_similarity_threshold: float = 0.35
+
+    redis_host: str = "114.132.43.247"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: str | None = None
+    redis_socket_timeout: float = 5.0
 
     mysql_host: str = "localhost"
     mysql_port: int = 3306

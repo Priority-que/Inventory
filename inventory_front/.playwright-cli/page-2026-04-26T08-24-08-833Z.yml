@@ -1,0 +1,20 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - heading "库存管理系统" [level=1] [ref=e6]
+        - paragraph [ref=e7]: 统一管理物料、采购、入库与供应商协同
+      - generic [ref=e8]:
+        - generic [ref=e12]:
+          - img [ref=e15]
+          - textbox "账号" [ref=e17]
+        - generic [ref=e21]:
+          - img [ref=e24]
+          - textbox "密码" [ref=e27]
+        - button "登录" [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: 登录
+  - generic [ref=e30]:
+    - generic "Toggle devtools panel" [ref=e31] [cursor=pointer]:
+      - img [ref=e32]
+    - generic "Toggle Component Inspector" [ref=e37] [cursor=pointer]:
+      - img [ref=e38]

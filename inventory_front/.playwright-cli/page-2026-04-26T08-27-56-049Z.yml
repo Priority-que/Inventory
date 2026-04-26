@@ -1,0 +1,88 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - button "库存管理系统" [ref=e5] [cursor=pointer]:
+        - img [ref=e8]
+        - generic [ref=e10]: 库存管理系统
+      - menubar [ref=e12]:
+        - menuitem "工作台" [ref=e13] [cursor=pointer]:
+          - img [ref=e15]
+          - generic [ref=e19]: 工作台
+        - listitem [ref=e20]:
+          - generic [ref=e21]: 核心业务
+          - list [ref=e22]:
+            - menuitem "用户管理" [ref=e23] [cursor=pointer]:
+              - img [ref=e25]
+              - generic [ref=e27]: 用户管理
+            - menuitem "物料管理" [ref=e28] [cursor=pointer]:
+              - img [ref=e30]
+              - generic [ref=e34]: 物料管理
+            - menuitem "仓库管理" [ref=e35] [cursor=pointer]:
+              - img [ref=e37]
+              - generic [ref=e39]: 仓库管理
+            - menuitem "供应商管理" [ref=e40] [cursor=pointer]:
+              - img [ref=e42]
+              - generic [ref=e45]: 供应商管理
+        - listitem [ref=e46]:
+          - generic [ref=e47]: 系统与智能
+          - list [ref=e48]:
+            - menuitem "AI 智能助手" [ref=e49] [cursor=pointer]:
+              - img [ref=e51]
+              - generic [ref=e54]: AI 智能助手
+            - menuitem "知识库管理" [ref=e55] [cursor=pointer]:
+              - img [ref=e57]
+              - generic [ref=e60]: 知识库管理
+            - menuitem "操作日志" [ref=e61] [cursor=pointer]:
+              - img [ref=e63]
+              - generic [ref=e65]: 操作日志
+      - button "系统管理员001 系统管理员" [ref=e67] [cursor=pointer]:
+        - img [ref=e70]
+        - generic [ref=e72]:
+          - generic [ref=e73]: 系统管理员001
+          - generic [ref=e74]: 系统管理员
+        - img [ref=e76]
+    - main [ref=e79]:
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]:
+            - heading "AI 智能助手" [level=2] [ref=e83]
+            - paragraph [ref=e84]: 通过对话完成风险扫描、订单诊断、供应商评分和业务知识问答
+          - generic [ref=e85]:
+            - generic:
+              - generic: 新会话
+            - button "新建会话" [ref=e86] [cursor=pointer]:
+              - generic [ref=e87]:
+                - img [ref=e89]
+                - text: 新建会话
+        - generic [ref=e91]:
+          - main [ref=e92]:
+            - generic [ref=e93]:
+              - img [ref=e96]
+              - heading "你想分析什么？" [level=3] [ref=e98]
+              - paragraph [ref=e99]: 直接输入问题，或选择一个常用业务场景开始。
+              - generic [ref=e100]:
+                - button "扫描采购风险" [ref=e101] [cursor=pointer]:
+                  - img [ref=e103]
+                  - generic [ref=e105]: 扫描采购风险
+                - button "诊断采购订单" [ref=e106] [cursor=pointer]:
+                  - img [ref=e108]
+                  - generic [ref=e110]: 诊断采购订单
+                - button "评估供应商履约" [ref=e111] [cursor=pointer]:
+                  - img [ref=e113]
+                  - generic [ref=e115]: 评估供应商履约
+                - button "询问业务规则" [ref=e116] [cursor=pointer]:
+                  - img [ref=e118]
+                  - generic [ref=e121]: 询问业务规则
+          - generic [ref=e123]:
+            - textbox "向智能助手提问，或输入“扫描最近7天采购风险”" [ref=e125]
+            - generic [ref=e126]:
+              - generic [ref=e127]: 连续对话会复用当前会话标识；新建会话会重新开始业务上下文。
+              - button "发送" [disabled] [ref=e128]:
+                - generic [ref=e129]:
+                  - img [ref=e131]
+                  - text: 发送
+  - generic [ref=e133]:
+    - generic "Toggle devtools panel" [ref=e134] [cursor=pointer]:
+      - img [ref=e135]
+    - generic "Toggle Component Inspector" [ref=e140] [cursor=pointer]:
+      - img [ref=e141]
