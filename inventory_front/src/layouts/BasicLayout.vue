@@ -40,9 +40,75 @@ const roleMenuMap: Record<string, MenuGroup[]> = {
     {
       title: '系统与智能',
       items: [
-        { title: 'AI 智能助手', path: '/admin/agent', icon: 'ChatDotRound' },
+        { title: 'AI 智能助手', path: '/assistant', icon: 'ChatDotRound' },
         { title: '知识库管理', path: '/admin/knowledge', icon: 'Reading' },
         { title: '操作日志', path: '/admin/log', icon: 'Document' },
+      ],
+    },
+  ],
+  PURCHASER: [
+    {
+      title: '采购执行',
+      items: [
+        { title: '采购申请', path: '/purchaser/request', icon: 'DocumentAdd' },
+        { title: '采购订单', path: '/purchaser/order', icon: 'Tickets' },
+        { title: '到货跟踪', path: '/purchaser/arrival', icon: 'Van' },
+        { title: '入库跟踪', path: '/purchaser/inbound', icon: 'TakeawayBox' },
+      ],
+    },
+    {
+      title: '主数据查询',
+      items: [
+        { title: '供应商查询', path: '/purchaser/supplier', icon: 'Connection' },
+        { title: '物料查询', path: '/purchaser/material', icon: 'Box' },
+      ],
+    },
+    {
+      title: '智能分析',
+      items: [
+        { title: 'AI 智能助手', path: '/assistant', icon: 'ChatDotRound' },
+      ],
+    },
+  ],
+  PURCHASE_MANAGER: [
+    {
+      title: '审批中心',
+      items: [{ title: '采购审批', path: '/manager/approval', icon: 'Operation' }],
+    },
+    {
+      title: '常用功能',
+      items: [{ title: 'AI 智能助手', path: '/assistant', icon: 'ChatDotRound' }],
+    },
+  ],
+  WAREHOUSE: [
+    {
+      title: '仓配作业',
+      items: [
+        { title: '到货管理', path: '/warehouse/arrival', icon: 'Van' },
+        { title: '入库管理', path: '/warehouse/inbound', icon: 'TakeawayBox' },
+        { title: '采购订单查看', path: '/warehouse/order', icon: 'Tickets' },
+      ],
+    },
+    {
+      title: '业务查询',
+      items: [
+        { title: '物料查询', path: '/warehouse/material', icon: 'Box' },
+        { title: '仓库查询', path: '/warehouse/warehouse', icon: 'House' },
+      ],
+    },
+    {
+      title: '智能诊断',
+      items: [
+        { title: 'AI 智能助手', path: '/assistant', icon: 'ChatDotRound' },
+      ],
+    },
+  ],
+  SUPPLIER: [
+    {
+      title: '供应商中心',
+      items: [
+        { title: '资料维护', path: '/supplier/profile', icon: 'Connection' },
+        { title: 'AI 智能助手', path: '/assistant', icon: 'ChatDotRound' },
       ],
     },
   ],
@@ -165,7 +231,7 @@ async function handleUserCommand(command: string) {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: linear-gradient(180deg, #f9fbfe 0%, #ffffff 240px);
   border-right: 1px solid var(--border-color);
 }
 
@@ -179,8 +245,8 @@ async function handleUserCommand(command: string) {
   padding: 0 22px;
   color: var(--primary-color);
   font-size: 18px;
-  font-weight: 700;
-  background: #ffffff;
+  font-weight: 600;
+  background: transparent;
   border: 0;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
@@ -190,7 +256,7 @@ async function handleUserCommand(command: string) {
 .layout-logo.el-button:hover,
 .layout-logo.el-button:focus {
   color: var(--primary-hover);
-  background: #ffffff;
+  background: transparent;
 }
 
 .layout-logo.el-button :deep(> span) {
@@ -202,21 +268,22 @@ async function handleUserCommand(command: string) {
 }
 
 .logo-mark {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   background: var(--primary-color);
-  border-radius: 6px;
+  border-radius: 10px;
   font-size: 18px;
+  box-shadow: 0 8px 20px rgba(15, 98, 254, 0.16);
 }
 
 .menu-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 0;
+  padding: 18px 0;
 }
 
 .layout-menu {
@@ -224,13 +291,15 @@ async function handleUserCommand(command: string) {
 }
 
 .layout-menu :deep(.el-menu-item) {
-  height: 44px;
-  margin: 2px 12px;
+  height: 46px;
+  margin: 3px 12px;
   padding: 0 14px !important;
-  border-radius: 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
   font-size: 14px;
   transition:
     color 0.2s ease,
+    border-color 0.2s ease,
     background-color 0.2s ease;
 }
 
@@ -242,13 +311,15 @@ async function handleUserCommand(command: string) {
 
 .layout-menu :deep(.el-menu-item.is-active) {
   color: var(--primary-color);
-  background: #eff6ff;
+  background: #eef5ff;
+  border-color: #d7e6ff;
   font-weight: 600;
 }
 
 .layout-menu :deep(.el-menu-item:hover) {
   color: var(--primary-color);
-  background: var(--app-bg);
+  background: #f4f8fd;
+  border-color: #e6edf6;
 }
 
 .layout-menu :deep(.el-menu-item-group__title) {
@@ -257,14 +328,16 @@ async function handleUserCommand(command: string) {
 }
 
 .menu-group-title {
-  color: #9ca3af;
+  color: #8a97aa;
   font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .layout-user {
   padding: 14px 12px 18px;
   border-top: 1px solid var(--border-color);
+  background: rgba(249, 251, 254, 0.92);
 }
 
 .user-button.el-button {
@@ -278,15 +351,15 @@ async function handleUserCommand(command: string) {
   color: #374151;
   background: #ffffff;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
 .user-button.el-button:hover,
 .user-button.el-button:focus {
   color: #374151;
-  border-color: #bfdbfe;
-  background: #f8fbff;
+  border-color: #d7e6ff;
+  background: #f7fbff;
 }
 
 .user-button.el-button :deep(> span) {
@@ -305,7 +378,7 @@ async function handleUserCommand(command: string) {
   justify-content: center;
   color: var(--primary-color);
   background: #eff6ff;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .user-meta {
@@ -338,7 +411,7 @@ async function handleUserCommand(command: string) {
 
 .layout-main {
   min-width: 0;
-  padding: 32px 40px;
+  padding: 28px 32px;
   background: var(--app-bg);
 }
 

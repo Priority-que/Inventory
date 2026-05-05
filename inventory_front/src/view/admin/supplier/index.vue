@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   ElMessage,
   ElMessageBox,
@@ -8,6 +9,7 @@ import {
   type UploadProps,
   type UploadUserFile,
 } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 import {
   addSupplierApi,
   deleteSupplierApi,
@@ -20,9 +22,25 @@ import {
 import { fileTypeOptions, getOptionLabel, getOptionType, supplierStatusOptions } from '@/constants/business'
 import { formatDateTime, formatEmpty } from '@/utils/format'
 
+const route = useRoute()
+const authStore = useAuthStore()
 const loading = ref(false)
 const tableData = ref<SupplierVO[]>([])
 const total = ref(0)
+const isAdmin = computed(() => authStore.user?.roleCodes?.includes('ADMIN') && route.path.startsWith('/admin'))
+const isSupplierRole = computed(() => authStore.user?.roleCodes?.includes('SUPPLIER') && route.path.startsWith('/supplier'))
+const canCreate = computed(() => isAdmin.value)
+const canBatchDelete = computed(() => isAdmin.value)
+const pageTitle = computed(() => String(route.meta.title || '供应商管理'))
+const pageSubtitle = computed(() => {
+  if (isAdmin.value) {
+    return '维护供应商档案、联系人和资质附件'
+  }
+  if (isSupplierRole.value) {
+    return '维护绑定当前账号的供应商资料，并保留附件上传字段'
+  }
+  return '查询供应商档案、联系人和资质附件字段'
+})
 
 const query = reactive({
   pageNum: 1,
@@ -103,6 +121,18 @@ function handleReset() {
 
 function handleSelectionChange(rows: SupplierVO[]) {
   selectedRows.value = rows
+}
+
+function canOperateRow(row: SupplierVO) {
+  if (isAdmin.value) {
+    return true
+  }
+
+  if (isSupplierRole.value) {
+    return row.userId === authStore.user?.id
+  }
+
+  return false
 }
 
 function resetForm() {
@@ -251,10 +281,10 @@ onMounted(loadData)
   <div class="page">
     <div class="page-header">
       <div>
-        <h2 class="page-title">供应商管理</h2>
-        <p class="page-subtitle">维护供应商档案、联系人和资质附件</p>
+        <h2 class="page-title">{{ pageTitle }}</h2>
+        <p class="page-subtitle">{{ pageSubtitle }}</p>
       </div>
-      <el-button type="primary" @click="openCreateDialog">
+      <el-button v-if="canCreate" type="primary" @click="openCreateDialog">
         <el-icon><Plus /></el-icon>
         新增供应商
       </el-button>
@@ -298,7 +328,7 @@ onMounted(loadData)
         </el-form>
       </div>
 
-      <div class="batch-action-bar">
+      <div v-if="canBatchDelete" class="batch-action-bar">
         <span>已选 <strong class="batch-count">{{ selectedIds.length }}</strong> 项</span>
         <el-button type="danger" plain :disabled="!selectedIds.length" @click="handleDelete(selectedIds)">
           <el-icon><Delete /></el-icon>
@@ -314,7 +344,8 @@ onMounted(loadData)
           table-layout="fixed"
           @selection-change="handleSelectionChange"
         >
-          <el-table-column type="selection" width="46" fixed="left" />
+          <el-table-column v-if="canBatchDelete" type="selection" width="46" fixed="left" />
+          <el-table-column prop="id" label="ID" width="88" fixed="left" />
           <el-table-column label="绑定用户" width="96">
             <template #default="{ row }">{{ formatEmpty(row.userId) }}</template>
           </el-table-column>
@@ -347,13 +378,15 @@ onMounted(loadData)
           <el-table-column label="更新时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="240" fixed="right">
+          <el-table-column prop="deleted" label="删除标记" width="96" />
+          <el-table-column :label="isAdmin || isSupplierRole ? '操作' : '详情'" width="240" fixed="right">
             <template #default="{ row }">
               <div class="table-actions">
                 <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-                <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
-                <el-button link type="primary" @click="openUploadDialog(row)">附件</el-button>
+                <el-button v-if="canOperateRow(row)" link type="primary" @click="openEditDialog(row)">编辑</el-button>
+                <el-button v-if="canOperateRow(row)" link type="primary" @click="openUploadDialog(row)">附件</el-button>
                 <el-popconfirm
+                  v-if="isAdmin"
                   title="确定删除该供应商吗？"
                   confirm-button-text="删除"
                   @confirm="handleDelete([row.id], true)"
@@ -487,6 +520,7 @@ onMounted(loadData)
         <el-descriptions-item label="备注">{{ formatEmpty(detail.remark) }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ formatDateTime(detail.createTime) }}</el-descriptions-item>
         <el-descriptions-item label="更新时间">{{ formatDateTime(detail.updateTime) }}</el-descriptions-item>
+        <el-descriptions-item label="删除标记">{{ formatEmpty(detail.deleted) }}</el-descriptions-item>
       </el-descriptions>
     </el-drawer>
   </div>

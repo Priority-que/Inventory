@@ -1,3 +1,11 @@
+export function formatDate(value?: string | null) {
+  if (!value) {
+    return '-'
+  }
+
+  return value.split('T')[0] || value
+}
+
 export function formatDateTime(value?: string | null) {
   if (!value) {
     return '-'
@@ -12,4 +20,12 @@ export function formatEmpty(value?: string | number | null) {
   }
 
   return value
+}
+
+export function formatArray(values?: Array<string | number> | null, separator = '、') {
+  if (!values?.length) {
+    return '-'
+  }
+
+  return values.join(separator)
 }

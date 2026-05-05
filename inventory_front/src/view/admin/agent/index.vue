@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { workflowExecuteApi, type WorkflowAgentResponse } from '@/api/agent'
 import { formatEmpty } from '@/utils/format'
@@ -27,6 +28,7 @@ interface WarningItem {
   suggestAction?: string
 }
 
+const route = useRoute()
 const messageInput = ref('')
 const sending = ref(false)
 const threadId = ref('')
@@ -34,7 +36,7 @@ const sessionId = ref<number>()
 const messages = ref<ChatMessage[]>([])
 const scrollRef = ref<HTMLElement>()
 
-const quickActions = [
+const allQuickActions = [
   {
     title: '扫描采购风险',
     icon: 'Warning',
@@ -56,6 +58,39 @@ const quickActions = [
     prompt: '请说明采购订单从待确认到完成的状态流转规则。',
   },
 ]
+
+const pageTitle = computed(() => String(route.meta.title || 'AI 智能助手'))
+const pageDesc = computed(() => {
+  if (route.path.includes('order-diagnosis')) {
+    return '复用统一 Workflow Agent，对采购订单做阶段诊断、阻塞定位和处理建议。'
+  }
+
+  if (route.path.includes('warning')) {
+    return '复用统一 Workflow Agent，扫描采购执行风险并输出汇总、重点风险和建议动作。'
+  }
+
+  if (route.path.includes('supplier-score')) {
+    return '复用统一 Workflow Agent，对供应商履约进行评分并返回指标拆解和合作建议。'
+  }
+
+  return '通过对话完成风险扫描、订单诊断、供应商评分和业务知识问答'
+})
+
+const quickActions = computed(() => {
+  if (route.path.includes('order-diagnosis')) {
+    return allQuickActions.filter((item) => item.title === '诊断采购订单')
+  }
+
+  if (route.path.includes('warning')) {
+    return allQuickActions.filter((item) => item.title === '扫描采购风险')
+  }
+
+  if (route.path.includes('supplier-score')) {
+    return allQuickActions.filter((item) => item.title === '评估供应商履约')
+  }
+
+  return allQuickActions
+})
 
 const hasMessages = computed(() => messages.value.length > 0)
 const currentThreadText = computed(() => threadId.value || '新会话')
@@ -283,8 +318,8 @@ async function copyAnswer(content: string) {
   <div class="agent-page">
     <header class="page-header">
       <div>
-        <h2 class="page-title">AI 智能助手</h2>
-        <p class="page-desc">通过对话完成风险扫描、订单诊断、供应商评分和业务知识问答</p>
+        <h2 class="page-title">{{ pageTitle }}</h2>
+        <p class="page-desc">{{ pageDesc }}</p>
       </div>
       <div class="header-actions">
         <el-tag type="info" effect="plain">{{ currentThreadText }}</el-tag>

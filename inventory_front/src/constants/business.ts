@@ -14,7 +14,7 @@ export const supplierStatusOptions = [
 export const roleOptions = [
   { label: '系统管理员', value: 1, code: 'ADMIN' },
   { label: '采购员', value: 2, code: 'PURCHASER' },
-  { label: '采购主管', value: 3, code: 'PURCHASE_MANAGER' },
+  { label: '采购经理', value: 3, code: 'PURCHASE_MANAGER' },
   { label: '仓库岗', value: 4, code: 'WAREHOUSE' },
   { label: '供应商', value: 5, code: 'SUPPLIER' },
 ] as const
@@ -32,6 +32,58 @@ export const intentOptions = [
   { label: '风险预警', value: 'WARNING_SCAN' },
   { label: '供应商评分', value: 'SUPPLIER_SCORE' },
   { label: '知识问答', value: 'KNOWLEDGE_QA' },
+] as const
+
+export const purchaseRequestStatusOptions = [
+  { label: '草稿', value: 'DRAFT', type: 'info' },
+  { label: '待审批', value: 'PENDING_APPROVAL', type: 'warning' },
+  { label: '已通过', value: 'APPROVED', type: 'success' },
+  { label: '已驳回', value: 'REJECTED', type: 'danger' },
+  { label: '已撤回', value: 'WITHDRAWN', type: 'info' },
+  { label: '已生成订单', value: 'ORDER_CREATED', type: 'success' },
+] as const
+
+export const purchaseReviewActionOptions = [
+  { label: '首次提交', value: 'SUBMIT', type: 'warning' },
+  { label: '重新提交', value: 'RESUBMIT', type: 'warning' },
+  { label: '撤回', value: 'WITHDRAW', type: 'info' },
+  { label: '审批通过', value: 'APPROVE', type: 'success' },
+  { label: '审批驳回', value: 'REJECT', type: 'danger' },
+] as const
+
+export const purchaseOrderStatusOptions = [
+  { label: '待确认', value: 'WAIT_CONFIRM', type: 'warning' },
+  { label: '执行中', value: 'IN_PROGRESS', type: 'primary' },
+  { label: '部分到货', value: 'PARTIAL_ARRIVAL', type: 'warning' },
+  { label: '已完成', value: 'COMPLETED', type: 'success' },
+  { label: '已关闭', value: 'CLOSED', type: 'info' },
+  { label: '已取消', value: 'CANCELLED', type: 'danger' },
+] as const
+
+export const arrivalStatusOptions = [
+  { label: '正常到货', value: 'NORMAL', type: 'success' },
+  { label: '异常到货', value: 'ABNORMAL', type: 'danger' },
+] as const
+
+export const inboundStatusOptions = [
+  { label: '待确认入库', value: 'PENDING', type: 'warning' },
+  { label: '已完成入库', value: 'COMPLETED', type: 'success' },
+  { label: '已取消', value: 'CANCELLED', type: 'info' },
+  { label: '异常', value: 'ABNORMAL', type: 'danger' },
+] as const
+
+export const workflowIntentOptions = [
+  { label: '订单诊断', value: 'ORDER_DIAGNOSIS' },
+  { label: '风险预警', value: 'WARNING_SCAN' },
+  { label: '供应商评分', value: 'SUPPLIER_SCORE' },
+  { label: '业务知识问答', value: 'KNOWLEDGE_QA' },
+  { label: '未识别', value: 'UNKNOWN' },
+] as const
+
+export const riskLevelOptions = [
+  { label: '高风险', value: 'HIGH', type: 'danger' },
+  { label: '中风险', value: 'MEDIUM', type: 'warning' },
+  { label: '低风险', value: 'LOW', type: 'info' },
 ] as const
 
 export function getOptionLabel(
