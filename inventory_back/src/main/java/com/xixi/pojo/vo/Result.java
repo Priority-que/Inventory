@@ -1,5 +1,7 @@
 package com.xixi.pojo.vo;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,9 +9,13 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Schema(name = "Result", description = "Result")
 public class Result {
+    @Schema(description = "统一响应编码")
     private Integer code;
+    @Schema(description = "响应消息")
     private String msg;
+    @Schema(description = "响应数据")
     private Object data;
     public static Result success() {
         return new Result(200, "success", null);
@@ -35,3 +41,4 @@ public class Result {
         return new Result(code, msg, null);
     }
 }
+

@@ -1,5 +1,8 @@
 package com.xixi.controller.user;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xixi.pojo.dto.user.UserDTO;
 import com.xixi.pojo.dto.user.UserRoleDTO;
@@ -14,43 +17,52 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/user")
 @RequiredArgsConstructor
+@Tag(name = "用户管理", description = "用户管理接口")
 public class UserController {
     private final UserService userService;
 
+    @Operation(summary = "分页查询用户", operationId = "getUserPage")
     @GetMapping("/getUserPage")
     public Result getUserPage(UserQuery userQuery) {
         IPage<UserVO> userPage = userService.getUserPage(userQuery);
         return Result.success(userPage);
     }
 
+    @Operation(summary = "查询用户详情", operationId = "getUserDetailById")
     @GetMapping("/getUserDetailById/{id}")
     public Result getUserDetailById(@PathVariable Long id) {
         UserVO userDetailById = userService.getUserDetailById(id);
         return Result.success(userDetailById);
     }
 
+    @Operation(summary = "新增用户", operationId = "addUser")
     @PostMapping("/addUser")
     public Result addUser(@RequestBody UserDTO userDTO) {
         return userService.addUser(userDTO);
     }
 
+    @Operation(summary = "更新用户", operationId = "updateUser")
     @PutMapping("/updateUser")
     public Result updateUser(@RequestBody UserDTO userDTO) {
         return userService.updateUser(userDTO);
     }
 
+    @Operation(summary = "更新用户状态", operationId = "updateUserStatus")
     @PutMapping("/updateUserStatus")
     public Result updateUserStatus(@RequestBody UserStatusDTO userStatusDTO) {
         return userService.updateUserStatus(userStatusDTO);
     }
 
+    @Operation(summary = "重置用户密码", operationId = "resetPassword")
     @PutMapping("/resetPassword/{id}")
     public Result resetPassword(@PathVariable Long id) {
         return userService.resetPassword(id);
     }
 
+    @Operation(summary = "更新用户角色", operationId = "updateUserRole")
     @PutMapping("/updateUserRole")
     public Result updateUserRole(@RequestBody UserRoleDTO userRoleDTO) {
         return userService.updateUserRole(userRoleDTO);
     }
 }
+

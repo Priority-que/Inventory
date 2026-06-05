@@ -53,10 +53,20 @@ public class SpringSecurityConfig {
                                     .authenticationEntryPoint(authenticationEntryPoint)
                                     .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/login","/error").permitAll()
+                        .requestMatchers(
+                                "/auth/login",
+                                "/error",
+                                "/doc.html",
+                                "/favicon.ico",
+                                "/webjars/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
                         .anyRequest().authenticated())
                 .authenticationProvider(daoAuthenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 }
+

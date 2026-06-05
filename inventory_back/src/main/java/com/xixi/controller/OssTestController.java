@@ -1,5 +1,8 @@
 package com.xixi.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.xixi.service.OssService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,11 +17,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/oss/test")
+@Tag(name = "OSS测试", description = "OSS测试接口")
 public class OssTestController {
     @Autowired
     private OssService ossService;
 
 
+    @Operation(summary = "上传测试文件", operationId = "upload")
     @PostMapping("/upload")
     public Map<String, Object> upload(@RequestParam("file") MultipartFile file)throws IOException {
         String objectKey=ossService.upload(file,"supplier");
@@ -31,3 +36,4 @@ public class OssTestController {
 
     }
 }
+
