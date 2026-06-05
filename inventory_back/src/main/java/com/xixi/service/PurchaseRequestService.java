@@ -13,6 +13,8 @@ import java.util.List;
 public interface PurchaseRequestService {
     IPage<PurchaseRequestPageVO> getPurchaseRequestPage(PurchaseRequestQuery purchaseRequestQuery);
 
+    IPage<PurchaseRequestPageVO> getMyApprovedPurchaseRequestPage(PurchaseRequestQuery purchaseRequestQuery);
+
     PurchaseRequestVO getPurchaseRequestById(Long id);
 
     Result addPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO);

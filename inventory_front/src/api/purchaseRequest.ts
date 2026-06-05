@@ -83,6 +83,14 @@ export function getPurchaseRequestPageApi(params: PurchaseRequestQuery) {
   })
 }
 
+export function getMyApprovedPurchaseRequestPageApi(params: PurchaseRequestQuery) {
+  return request<PageResult<PurchaseRequestPageVO>>({
+    url: '/purchaseRequest/getMyApprovedPurchaseRequestPage',
+    method: 'get',
+    params: cleanParams({ ...params }),
+  })
+}
+
 export function getPurchaseRequestByIdApi(id: number) {
   return request<PurchaseRequestVO>({
     url: `/purchaseRequest/getPurchaseRequestById/${id}`,
@@ -91,7 +99,7 @@ export function getPurchaseRequestByIdApi(id: number) {
 }
 
 export function addPurchaseRequestApi(data: PurchaseRequestDTO) {
-  return request<null>({
+  return request<number>({
     url: '/purchaseRequest/addPurchaseRequest',
     method: 'post',
     data,

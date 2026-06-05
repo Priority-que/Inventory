@@ -107,6 +107,7 @@ const roleMenuMap: Record<string, MenuGroup[]> = {
     {
       title: '供应商中心',
       items: [
+        { title: '订单确认', path: '/supplier/order', icon: 'Tickets' },
         { title: '资料维护', path: '/supplier/profile', icon: 'Connection' },
         { title: 'AI 智能助手', path: '/assistant', icon: 'ChatDotRound' },
       ],

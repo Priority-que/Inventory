@@ -16,6 +16,9 @@
             <if test="q.specification !=null and q.specification !=''">
                 and specification like concat('%',#{q.specification},'%')
             </if>
+            <if test="q.status != null and q.status != ''">
+                and status = #{q.status}
+            </if>
             <if test="q.safetyNumberBegin !=null">
                 and safety_number >= #{q.safetyNumberBegin}
             </if>

@@ -59,6 +59,7 @@
         from inbound
         where arrival_id = #{arrivalId}
           and deleted = 0
+          and status != 'CANCELLED'
     </select>
 
     <update id="completeInbound">

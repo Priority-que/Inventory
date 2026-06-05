@@ -9,6 +9,8 @@ import com.xixi.pojo.vo.purchase.PurchaseOrderVO;
 public interface PurchaseOrderService {
     IPage<PurchaseOrderVO> getPurchaseOrderPage(PurchaseOrderQuery purchaseOrderQuery);
 
+    Result getSupplierPurchaseOrderPage(PurchaseOrderQuery purchaseOrderQuery);
+
     PurchaseOrderVO getPurchaseOrderById(Long id);
 
     Result addPurchaseOrder(PurchaseOrderDTO purchaseOrderDTO);
@@ -16,6 +18,8 @@ public interface PurchaseOrderService {
     Result updatePurchaseOrder(PurchaseOrderDTO purchaseOrderDTO);
 
     Result cancelPurchaseOrder(PurchaseOrderDTO purchaseOrderDTO);
+
+    Result confirmPurchaseOrder(PurchaseOrderDTO purchaseOrderDTO);
 
     Result closePurchaseOrder(PurchaseOrderDTO purchaseOrderDTO);
 }

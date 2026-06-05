@@ -257,6 +257,17 @@ const router = createRouter({
           },
         },
         {
+          path: 'supplier/order',
+          name: 'SupplierOrderConfirm',
+          component: () => import('@/view/purchaser/order/index.vue'),
+          meta: {
+            title: '订单确认',
+            requiresAuth: true,
+            roles: ['SUPPLIER'],
+            icon: 'Tickets',
+          },
+        },
+        {
           path: 'admin/knowledge',
           name: 'AdminKnowledge',
           component: () => import('@/view/admin/knowledge/index.vue'),

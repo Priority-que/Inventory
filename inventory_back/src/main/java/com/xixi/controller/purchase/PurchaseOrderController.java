@@ -24,6 +24,11 @@ public class PurchaseOrderController {
         IPage<PurchaseOrderVO> page = purchaseOrderService.getPurchaseOrderPage(purchaseOrderQuery);
         return Result.success(page);
     }
+    @Operation(summary = "供应商分页查询自己的采购订单", operationId = "getSupplierPurchaseOrderPage")
+    @GetMapping("/getSupplierPurchaseOrderPage")
+    public Result getSupplierPurchaseOrderPage(PurchaseOrderQuery purchaseOrderQuery) {
+        return purchaseOrderService.getSupplierPurchaseOrderPage(purchaseOrderQuery);
+    }
     @Operation(summary = "查询采购订单详情", operationId = "getPurchaseOrderById")
     @GetMapping("/getPurchaseOrderById/{id}")
     public Result getPurchaseOrderById(@PathVariable Long id) {
@@ -44,6 +49,11 @@ public class PurchaseOrderController {
     @PutMapping("/cancelPurchaseOrder")
     public Result cancelPurchaseOrder(@RequestBody PurchaseOrderDTO purchaseOrderDTO) {
         return purchaseOrderService.cancelPurchaseOrder(purchaseOrderDTO);
+    }
+    @Operation(summary = "供应商确认采购订单", operationId = "confirmPurchaseOrder")
+    @PutMapping("/confirmPurchaseOrder")
+    public Result confirmPurchaseOrder(@RequestBody PurchaseOrderDTO purchaseOrderDTO) {
+        return purchaseOrderService.confirmPurchaseOrder(purchaseOrderDTO);
     }
     @Operation(summary = "关闭采购订单", operationId = "closePurchaseOrder")
     @PutMapping("/closePurchaseOrder")

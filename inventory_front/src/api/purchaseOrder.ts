@@ -12,6 +12,7 @@ export interface PurchaseOrderQuery {
   planDateBegin?: string
   planDateEnd?: string
   status?: string
+  purchaserId?: number
 }
 
 export interface PurchaseOrderItemCreateDTO {
@@ -82,6 +83,14 @@ export function getPurchaseOrderPageApi(params: PurchaseOrderQuery) {
   })
 }
 
+export function getSupplierPurchaseOrderPageApi(params: PurchaseOrderQuery) {
+  return request<PageResult<PurchaseOrderVO>>({
+    url: '/purchaseOrder/getSupplierPurchaseOrderPage',
+    method: 'get',
+    params: cleanParams({ ...params }),
+  })
+}
+
 export function getPurchaseOrderByIdApi(id: number) {
   return request<PurchaseOrderVO>({
     url: `/purchaseOrder/getPurchaseOrderById/${id}`,
@@ -108,6 +117,14 @@ export function updatePurchaseOrderApi(data: PurchaseOrderDTO) {
 export function cancelPurchaseOrderApi(data: PurchaseOrderDTO) {
   return request<null>({
     url: '/purchaseOrder/cancelPurchaseOrder',
+    method: 'put',
+    data,
+  })
+}
+
+export function confirmPurchaseOrderApi(data: PurchaseOrderDTO) {
+  return request<null>({
+    url: '/purchaseOrder/confirmPurchaseOrder',
     method: 'put',
     data,
   })

@@ -7,8 +7,10 @@ import com.xixi.annotation.OperLogRecord;
 import com.xixi.entity.PurchaseRequest;
 import com.xixi.entity.PurchaseRequestItem;
 import com.xixi.entity.PurchaseRequestReview;
+import com.xixi.entity.User;
 import com.xixi.mapper.PurchaseRequestItemMapper;
 import com.xixi.mapper.PurchaseRequestMapper;
+import com.xixi.mapper.UserMapper;
 import com.xixi.pojo.dto.purchase.PurchaseRequestDTO;
 import com.xixi.pojo.query.purchase.PurchaseRequestQuery;
 import com.xixi.pojo.vo.Result;
@@ -26,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static com.xixi.util.SecurityUtils.getCurrentUserId;
+import static com.xixi.util.SecurityUtils.getCurrentUserRoleCodes;
 import static com.xixi.util.SecurityUtils.getCurrentUsername;
 
 @Service
@@ -34,16 +37,40 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private final PurchaseRequestMapper purchaseRequestMapper;
     private final PurchaseRequestItemMapper purchaseRequestItemMapper;
     private final PurchaseRequestReviewService purchaseRequestReviewService;
+    private final UserMapper userMapper;
 
     @Override
     public IPage<PurchaseRequestPageVO> getPurchaseRequestPage(PurchaseRequestQuery purchaseRequestQuery) {
+        if (isPlainPurchaser()) {
+            Long currentUserId = getCurrentUserId();
+            purchaseRequestQuery.setApplicantId(currentUserId == null ? -1L : currentUserId);
+        }
+        IPage<PurchaseRequestPageVO> page = new Page<>(purchaseRequestQuery.getPageNum(), purchaseRequestQuery.getPageSize());
+        return purchaseRequestMapper.getPurchaseRequestPage(page, purchaseRequestQuery);
+    }
+
+    @Override
+    public IPage<PurchaseRequestPageVO> getMyApprovedPurchaseRequestPage(PurchaseRequestQuery purchaseRequestQuery) {
+        Long currentUserId = getCurrentUserId();
+        purchaseRequestQuery.setApplicantId(currentUserId == null ? -1L : currentUserId);
+        purchaseRequestQuery.setStatus("APPROVED");
         IPage<PurchaseRequestPageVO> page = new Page<>(purchaseRequestQuery.getPageNum(), purchaseRequestQuery.getPageSize());
         return purchaseRequestMapper.getPurchaseRequestPage(page, purchaseRequestQuery);
     }
 
     @Override
     public PurchaseRequestVO getPurchaseRequestById(Long id) {
-        return purchaseRequestMapper.getPurchaseRequestById(id);
+        PurchaseRequestVO purchaseRequest = purchaseRequestMapper.getPurchaseRequestById(id);
+        if (purchaseRequest == null) {
+            return null;
+        }
+        if (isPlainPurchaser()) {
+            Long currentUserId = getCurrentUserId();
+            if (currentUserId == null || !currentUserId.equals(purchaseRequest.getApplicantId())) {
+                return null;
+            }
+        }
+        return purchaseRequest;
     }
 
     @Override
@@ -59,13 +86,21 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         if (currentUserId == null) {
             return Result.error("当前登录用户不存在");
         }
+        User currentUser = userMapper.selectById(currentUserId);
+        if (currentUser == null) {
+            return Result.error("当前登录用户不存在");
+        }
+        if (isBlank(currentUser.getDept())) {
+            return Result.error("当前用户部门为空，请先维护个人部门");
+        }
         PurchaseRequest purchaseRequest = BeanUtil.copyProperties(purchaseRequestDTO, PurchaseRequest.class);
         purchaseRequest.setApplicantId(currentUserId);
+        purchaseRequest.setDept(currentUser.getDept());
         purchaseRequest.setRequestNo(generateRequestNo(currentUserId));
         purchaseRequest.setStatus("DRAFT");
         if (purchaseRequestMapper.insert(purchaseRequest) > 0) {
             purchaseRequestDTO.setId(purchaseRequest.getId());
-            return Result.success("添加采购申请成功");
+            return Result.success("添加采购申请成功", purchaseRequest.getId());
         }
         return Result.error("添加采购申请失败");
     }
@@ -78,11 +113,36 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             operationDesc = "修改采购申请",
             bizType = "PURCHASE_REQUEST"
     )
+    @Transactional
     public Result updatePurchaseRequest(PurchaseRequestDTO purchaseRequestDTO) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            return Result.error("当前登录用户不存在");
+        }
+        if (purchaseRequestDTO.getId() == null) {
+            return Result.error("采购申请单Id不能为空");
+        }
+        PurchaseRequest oldPurchaseRequest = purchaseRequestMapper.findPurchaseRequestById(purchaseRequestDTO.getId());
+        if (oldPurchaseRequest == null) {
+            return Result.error("采购申请不存在");
+        }
+        if (!currentUserId.equals(oldPurchaseRequest.getApplicantId())) {
+            return Result.error("当前用户不是申请人，不能修改该申请单");
+        }
+        if (!"DRAFT".equals(oldPurchaseRequest.getStatus()) && !"REJECTED".equals(oldPurchaseRequest.getStatus())) {
+            return Result.error("当前采购申请状态不允许修改");
+        }
+        User currentUser = userMapper.selectById(currentUserId);
+        if (currentUser == null) {
+            return Result.error("当前登录用户不存在");
+        }
+        if (isBlank(currentUser.getDept())) {
+            return Result.error("当前用户部门为空，请先维护个人部门");
+        }
         PurchaseRequest purchaseRequest = new PurchaseRequest();
         purchaseRequest.setId(purchaseRequestDTO.getId());
         purchaseRequest.setTitle(purchaseRequestDTO.getTitle());
-        purchaseRequest.setDept(purchaseRequestDTO.getDept());
+        purchaseRequest.setDept(currentUser.getDept());
         purchaseRequest.setExpectedDate(purchaseRequestDTO.getExpectedDate());
         purchaseRequest.setRemark(purchaseRequestDTO.getRemark());
         if (purchaseRequestMapper.updateById(purchaseRequest) > 0) {
@@ -100,6 +160,26 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             bizType = "PURCHASE_REQUEST"
     )
     public Result deletePurchaseRequest(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Result.error("采购申请Id不能为空");
+        }
+        if (isPlainPurchaser()) {
+            Long currentUserId = getCurrentUserId();
+            for (Integer id : ids) {
+                PurchaseRequest purchaseRequest = purchaseRequestMapper.findPurchaseRequestById(id.longValue());
+                if (purchaseRequest == null) {
+                    return Result.error("采购申请不存在");
+                }
+                if (currentUserId == null || !currentUserId.equals(purchaseRequest.getApplicantId())) {
+                    return Result.error("只能删除自己的采购申请");
+                }
+                if (!"DRAFT".equals(purchaseRequest.getStatus())
+                        && !"REJECTED".equals(purchaseRequest.getStatus())
+                        && !"WITHDRAWN".equals(purchaseRequest.getStatus())) {
+                    return Result.error("当前采购申请状态不允许删除");
+                }
+            }
+        }
         if (purchaseRequestMapper.deleteByIds(ids) > 0) {
             return Result.success("删除采购申请成功");
         }
@@ -303,5 +383,17 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
     private String generateRequestNo(Long requestId) {
         return "PR" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS")) + requestId;
+    }
+
+    private boolean isPlainPurchaser() {
+        List<String> roleCodes = getCurrentUserRoleCodes();
+        return roleCodes != null
+                && roleCodes.contains("PURCHASER")
+                && !roleCodes.contains("ADMIN")
+                && !roleCodes.contains("PURCHASE_MANAGER");
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

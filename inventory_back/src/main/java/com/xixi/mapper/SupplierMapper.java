@@ -15,5 +15,7 @@ public interface SupplierMapper extends BaseMapper<Supplier>{
     public IPage<SupplierVO> getSupplierPage(IPage<SupplierVO> supplierPageVOIPage, @Param("q") SupplierPageQuery supplierPageQuery);
     @Select("select * from supplier where id =#{id} and deleted = 0")
     Supplier getSupplierById(Long id);
+    @Select("select * from supplier where user_id = #{userId} and deleted = 0 limit 1")
+    Supplier getSupplierByUserId(Long userId);
     Integer updateFileRound(@Param("id") Long id, @Param("fileRound") Integer fileRound);
 }

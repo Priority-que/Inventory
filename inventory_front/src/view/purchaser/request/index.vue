@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { getMaterialPageApi, type MaterialPageVO } from '@/api/material'
 import {
   addPurchaseRequestApi,
   addPurchaseRequestItemApi,
@@ -88,29 +89,50 @@ const itemForm = reactive<PurchaseRequestItemDTO>({
   remark: '',
 })
 
+const materialDialogVisible = ref(false)
+const materialLoading = ref(false)
+const materialRows = ref<MaterialPageVO[]>([])
+const materialTotal = ref(0)
+const materialQuery = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  code: '',
+  name: '',
+  specification: '',
+  status: 'ENABLED',
+})
+
+const editableRequestStatuses = ['DRAFT', 'REJECTED']
+
 const formRules: FormRules<PurchaseRequestDTO> = {
   title: [{ required: true, message: '请输入申请标题', trigger: 'blur' }],
-  dept: [{ required: true, message: '请输入申请部门', trigger: 'blur' }],
+  dept: [{ required: true, message: '当前用户部门为空，请先维护个人信息', trigger: 'blur' }],
   expectedDate: [{ required: true, message: '请选择期望到货日期', trigger: 'change' }],
 }
 
 const itemFormRules: FormRules<PurchaseRequestItemDTO> = {
-  materialId: [{ required: true, message: '请输入物料 ID', trigger: 'blur' }],
-  materialCode: [{ required: true, message: '请输入物料编码', trigger: 'blur' }],
-  materialName: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
-  specification: [{ required: true, message: '请输入规格型号', trigger: 'blur' }],
-  unit: [{ required: true, message: '请输入单位', trigger: 'blur' }],
+  materialId: [{ required: true, message: '请选择物料', trigger: 'change' }],
   requestNumber: [{ required: true, message: '请输入申请数量', trigger: 'blur' }],
 }
 
 const canManageItems = computed(() => {
   const status = detail.value?.status || ''
-  return ['DRAFT', 'REJECTED', 'WITHDRAWN'].includes(status)
+  return editableRequestStatuses.includes(status)
 })
 
 function syncSubmitRange() {
   query.submitTimeBegin = submitTimeRange.value[0] || ''
   query.submitTimeEnd = submitTimeRange.value[1] || ''
+}
+
+function currentUserDept() {
+  return authStore.user?.dept || ''
+}
+
+async function ensureCurrentUserProfile() {
+  if (!authStore.user?.dept) {
+    await authStore.fetchCurrentUser()
+  }
 }
 
 async function loadData() {
@@ -155,7 +177,7 @@ function resetForm() {
     requestNo: '',
     applicantId: authStore.user?.id,
     title: '',
-    dept: '',
+    dept: currentUserDept(),
     expectedDate: '',
     submitTime: '',
     reviewUserId: undefined,
@@ -170,7 +192,8 @@ function resetForm() {
   formRef.value?.clearValidate()
 }
 
-function openCreateDialog() {
+async function openCreateDialog() {
+  await ensureCurrentUserProfile()
   dialogMode.value = 'create'
   resetForm()
   dialogVisible.value = true
@@ -204,25 +227,36 @@ async function submitForm() {
   formLoading.value = true
   try {
     if (dialogMode.value === 'create') {
-      await addPurchaseRequestApi({ ...requestForm })
-      ElMessage.success('采购申请已新增')
+      const requestId = await addPurchaseRequestApi({ ...requestForm })
+      ElMessage.success('采购申请已新增，请继续维护申请明细')
+      dialogVisible.value = false
+      await loadData()
+      if (requestId) {
+        detailTab.value = 'items'
+        detailVisible.value = true
+        await loadDetail(requestId)
+      }
     } else {
+      const requestId = requestForm.id
       await updatePurchaseRequestApi({ ...requestForm })
       ElMessage.success('采购申请已更新')
+      dialogVisible.value = false
+      await loadData()
+      if (detail.value?.id && requestId === detail.value.id) {
+        await loadDetail(detail.value.id)
+      }
     }
-    dialogVisible.value = false
-    loadData()
   } finally {
     formLoading.value = false
   }
 }
 
 function canEditRow(row: PurchaseRequestPageVO) {
-  return ['DRAFT', 'REJECTED', 'WITHDRAWN'].includes(row.status || '')
+  return editableRequestStatuses.includes(row.status || '')
 }
 
 function canSubmitRow(row: PurchaseRequestPageVO) {
-  return ['DRAFT', 'REJECTED', 'WITHDRAWN'].includes(row.status || '')
+  return editableRequestStatuses.includes(row.status || '')
 }
 
 function canWithdrawRow(row: PurchaseRequestPageVO) {
@@ -234,6 +268,13 @@ function canDeleteRow(row: PurchaseRequestPageVO) {
 }
 
 async function handleSubmit(row: PurchaseRequestPageVO) {
+  const items = await getPurchaseRequestItemsByRequestIdApi(row.id)
+  if (!items.length) {
+    ElMessage.warning('请先维护采购申请明细')
+    await openItems(row)
+    return
+  }
+
   await ElMessageBox.confirm(`确定提交采购申请 ${row.requestNo || row.id} 吗？`, '提交采购申请', {
     type: 'warning',
     confirmButtonText: '提交',
@@ -301,6 +342,12 @@ async function openDetail(row: PurchaseRequestPageVO) {
   await loadDetail(row.id)
 }
 
+async function openItems(row: PurchaseRequestPageVO) {
+  detailTab.value = 'items'
+  detailVisible.value = true
+  await loadDetail(row.id)
+}
+
 function resetItemForm() {
   Object.assign(itemForm, {
     id: undefined,
@@ -318,6 +365,64 @@ function resetItemForm() {
     deleted: undefined,
   })
   itemFormRef.value?.clearValidate()
+}
+
+async function loadMaterials() {
+  materialLoading.value = true
+  try {
+    const result = await getMaterialPageApi(materialQuery)
+    materialRows.value = result.records
+    materialTotal.value = result.total
+  } finally {
+    materialLoading.value = false
+  }
+}
+
+function openMaterialDialog() {
+  materialDialogVisible.value = true
+  if (!materialRows.value.length) {
+    loadMaterials()
+  }
+}
+
+function handleMaterialSearch() {
+  materialQuery.pageNum = 1
+  loadMaterials()
+}
+
+function handleMaterialReset() {
+  Object.assign(materialQuery, {
+    pageNum: 1,
+    pageSize: 10,
+    code: '',
+    name: '',
+    specification: '',
+    status: 'ENABLED',
+  })
+  loadMaterials()
+}
+
+function selectMaterial(row: MaterialPageVO) {
+  Object.assign(itemForm, {
+    materialId: row.id,
+    materialCode: row.code,
+    materialName: row.name,
+    specification: row.specification,
+    unit: row.unit,
+  })
+  materialDialogVisible.value = false
+  itemFormRef.value?.validateField('materialId')
+}
+
+function handleMaterialSizeChange(size: number) {
+  materialQuery.pageSize = size
+  materialQuery.pageNum = 1
+  loadMaterials()
+}
+
+function handleMaterialCurrentChange(page: number) {
+  materialQuery.pageNum = page
+  loadMaterials()
 }
 
 function openCreateItemDialog() {
@@ -391,7 +496,10 @@ function handleCurrentChange(page: number) {
   loadData()
 }
 
-onMounted(loadData)
+onMounted(async () => {
+  await ensureCurrentUserProfile()
+  await loadData()
+})
 </script>
 
 <template>
@@ -468,10 +576,8 @@ onMounted(loadData)
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="46" fixed="left" />
-          <el-table-column prop="id" label="ID" width="88" fixed="left" />
           <el-table-column prop="requestNo" label="申请单号" min-width="160" show-overflow-tooltip />
           <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="applicantId" label="申请人 ID" width="110" />
           <el-table-column prop="applicantName" label="申请人" min-width="120" show-overflow-tooltip />
           <el-table-column prop="dept" label="申请部门" min-width="120" show-overflow-tooltip />
           <el-table-column label="期望到货日期" min-width="128">
@@ -480,7 +586,6 @@ onMounted(loadData)
           <el-table-column label="提交时间" min-width="168">
             <template #default="{ row }">{{ formatDateTime(row.submitTime) }}</template>
           </el-table-column>
-          <el-table-column prop="reviewUserId" label="审批人 ID" width="110" />
           <el-table-column prop="reviewUserName" label="审批人" min-width="120" show-overflow-tooltip />
           <el-table-column label="审批时间" min-width="168">
             <template #default="{ row }">{{ formatDateTime(row.reviewTime) }}</template>
@@ -504,11 +609,11 @@ onMounted(loadData)
           <el-table-column label="更新时间" min-width="168">
             <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
           </el-table-column>
-          <el-table-column prop="deleted" label="删除标记" width="96" />
-          <el-table-column label="操作" width="260" fixed="right">
+          <el-table-column label="操作" width="300" fixed="right">
             <template #default="{ row }">
               <div class="table-actions">
                 <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+                <el-button link type="primary" @click="openItems(row)">明细</el-button>
                 <el-button v-if="canEditRow(row)" link type="primary" @click="openEditDialog(row)">编辑</el-button>
                 <el-button v-if="canSubmitRow(row)" link type="primary" @click="handleSubmit(row)">提交</el-button>
                 <el-button v-if="canWithdrawRow(row)" link type="warning" @click="handleWithdraw(row)">撤回</el-button>
@@ -554,7 +659,7 @@ onMounted(loadData)
             <el-input v-model="requestForm.title" placeholder="输入采购申请标题" />
           </el-form-item>
           <el-form-item label="申请部门" prop="dept">
-            <el-input v-model="requestForm.dept" placeholder="输入申请部门" />
+            <el-input v-model="requestForm.dept" disabled placeholder="由当前用户档案带出" />
           </el-form-item>
           <el-form-item label="期望到货日期" prop="expectedDate">
             <el-date-picker
@@ -579,22 +684,6 @@ onMounted(loadData)
           <el-input v-model="requestForm.remark" :rows="3" type="textarea" placeholder="填写备注" />
         </el-form-item>
 
-        <el-collapse>
-          <el-collapse-item title="系统字段与只读字段" name="system">
-            <el-descriptions class="detail-descriptions" :column="2" border>
-              <el-descriptions-item label="ID">{{ formatEmpty(requestForm.id) }}</el-descriptions-item>
-              <el-descriptions-item label="申请单号">{{ formatEmpty(requestForm.requestNo) }}</el-descriptions-item>
-              <el-descriptions-item label="申请人 ID">{{ formatEmpty(requestForm.applicantId) }}</el-descriptions-item>
-              <el-descriptions-item label="提交时间">{{ formatDateTime(requestForm.submitTime) }}</el-descriptions-item>
-              <el-descriptions-item label="审批人 ID">{{ formatEmpty(requestForm.reviewUserId) }}</el-descriptions-item>
-              <el-descriptions-item label="审批时间">{{ formatDateTime(requestForm.reviewTime) }}</el-descriptions-item>
-              <el-descriptions-item label="审批备注">{{ formatEmpty(requestForm.reviewNote) }}</el-descriptions-item>
-              <el-descriptions-item label="创建时间">{{ formatDateTime(requestForm.createTime) }}</el-descriptions-item>
-              <el-descriptions-item label="更新时间">{{ formatDateTime(requestForm.updateTime) }}</el-descriptions-item>
-              <el-descriptions-item label="删除标记">{{ formatEmpty(requestForm.deleted) }}</el-descriptions-item>
-            </el-descriptions>
-          </el-collapse-item>
-        </el-collapse>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -611,14 +700,11 @@ onMounted(loadData)
             <div class="detail-card">
               <h3 class="detail-card__title">申请单字段</h3>
               <el-descriptions v-if="detail" class="detail-descriptions" :column="2" border>
-                <el-descriptions-item label="ID">{{ detail.id }}</el-descriptions-item>
                 <el-descriptions-item label="申请单号">{{ formatEmpty(detail.requestNo) }}</el-descriptions-item>
                 <el-descriptions-item label="标题">{{ formatEmpty(detail.title) }}</el-descriptions-item>
-                <el-descriptions-item label="申请人 ID">{{ formatEmpty(detail.applicantId) }}</el-descriptions-item>
                 <el-descriptions-item label="申请部门">{{ formatEmpty(detail.dept) }}</el-descriptions-item>
                 <el-descriptions-item label="期望到货日期">{{ formatDate(detail.expectedDate) }}</el-descriptions-item>
                 <el-descriptions-item label="提交时间">{{ formatDateTime(detail.submitTime) }}</el-descriptions-item>
-                <el-descriptions-item label="审批人 ID">{{ formatEmpty(detail.reviewUserId) }}</el-descriptions-item>
                 <el-descriptions-item label="审批时间">{{ formatDateTime(detail.reviewTime) }}</el-descriptions-item>
                 <el-descriptions-item label="审批备注">{{ formatEmpty(detail.reviewNote) }}</el-descriptions-item>
                 <el-descriptions-item label="状态">
@@ -633,7 +719,6 @@ onMounted(loadData)
                 <el-descriptions-item label="备注">{{ formatEmpty(detail.remark) }}</el-descriptions-item>
                 <el-descriptions-item label="创建时间">{{ formatDateTime(detail.createTime) }}</el-descriptions-item>
                 <el-descriptions-item label="更新时间">{{ formatDateTime(detail.updateTime) }}</el-descriptions-item>
-                <el-descriptions-item label="删除标记">{{ formatEmpty(detail.deleted) }}</el-descriptions-item>
               </el-descriptions>
             </div>
           </el-tab-pane>
@@ -652,17 +737,13 @@ onMounted(loadData)
               </div>
               <div class="table-wrap">
                 <el-table :data="detailItems" table-layout="fixed">
-                  <el-table-column prop="id" label="ID" width="88" />
-                  <el-table-column prop="requestId" label="申请 ID" width="100" />
                   <el-table-column prop="requestNo" label="申请单号" min-width="150" show-overflow-tooltip />
                   <el-table-column prop="requestTitle" label="申请标题" min-width="180" show-overflow-tooltip />
-                  <el-table-column prop="materialId" label="物料 ID" width="100" />
                   <el-table-column prop="materialCode" label="物料编码" min-width="140" show-overflow-tooltip />
                   <el-table-column prop="materialName" label="物料名称" min-width="160" show-overflow-tooltip />
                   <el-table-column prop="specification" label="规格型号" min-width="160" show-overflow-tooltip />
                   <el-table-column prop="unit" label="单位" width="88" />
                   <el-table-column prop="requestNumber" label="申请数量" min-width="120" />
-                  <el-table-column prop="sortNumber" label="排序号" width="88" />
                   <el-table-column label="备注" min-width="180" show-overflow-tooltip>
                     <template #default="{ row }">{{ formatEmpty(row.remark) }}</template>
                   </el-table-column>
@@ -672,7 +753,6 @@ onMounted(loadData)
                   <el-table-column label="更新时间" min-width="168">
                     <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
                   </el-table-column>
-                  <el-table-column prop="deleted" label="删除标记" width="96" />
                   <el-table-column v-if="canManageItems" label="操作" width="160" fixed="right">
                     <template #default="{ row }">
                       <div class="table-actions">
@@ -704,8 +784,6 @@ onMounted(loadData)
               </div>
               <div class="table-wrap">
                 <el-table :data="reviewList" table-layout="fixed">
-                  <el-table-column prop="id" label="ID" width="88" />
-                  <el-table-column prop="requestId" label="申请 ID" width="100" />
                   <el-table-column label="动作类型" min-width="120">
                     <template #default="{ row }">
                       <el-tag
@@ -719,7 +797,6 @@ onMounted(loadData)
                   </el-table-column>
                   <el-table-column prop="fromStatus" label="原状态" min-width="140" show-overflow-tooltip />
                   <el-table-column prop="toStatus" label="目标状态" min-width="140" show-overflow-tooltip />
-                  <el-table-column prop="operatorId" label="操作人 ID" width="110" />
                   <el-table-column prop="operatorName" label="操作人" min-width="120" show-overflow-tooltip />
                   <el-table-column prop="operateNote" label="操作说明" min-width="180" show-overflow-tooltip />
                   <el-table-column label="操作时间" min-width="168">
@@ -741,45 +818,31 @@ onMounted(loadData)
     >
       <el-form ref="itemFormRef" v-loading="itemFormLoading" :model="itemForm" :rules="itemFormRules" label-width="100px">
         <div class="dialog-grid">
-          <el-form-item label="申请 ID">
-            <el-input :model-value="String(itemForm.requestId || '')" disabled />
+          <el-form-item label="物料" prop="materialId">
+            <el-input
+              :model-value="itemForm.materialCode ? `${itemForm.materialCode} / ${itemForm.materialName}` : ''"
+              readonly
+              placeholder="请选择物料"
+            >
+              <template #append>
+                <el-button @click="openMaterialDialog">选择</el-button>
+              </template>
+            </el-input>
           </el-form-item>
-          <el-form-item label="物料 ID" prop="materialId">
-            <el-input-number v-model="itemForm.materialId" :min="1" controls-position="right" />
+          <el-form-item label="规格型号">
+            <el-input :model-value="formatEmpty(itemForm.specification)" disabled />
           </el-form-item>
-          <el-form-item label="物料编码" prop="materialCode">
-            <el-input v-model="itemForm.materialCode" placeholder="输入物料编码" />
-          </el-form-item>
-          <el-form-item label="物料名称" prop="materialName">
-            <el-input v-model="itemForm.materialName" placeholder="输入物料名称" />
-          </el-form-item>
-          <el-form-item label="规格型号" prop="specification">
-            <el-input v-model="itemForm.specification" placeholder="输入规格型号" />
-          </el-form-item>
-          <el-form-item label="单位" prop="unit">
-            <el-input v-model="itemForm.unit" placeholder="输入单位" />
+          <el-form-item label="单位">
+            <el-input :model-value="formatEmpty(itemForm.unit)" disabled />
           </el-form-item>
           <el-form-item label="申请数量" prop="requestNumber">
-            <el-input-number v-model="itemForm.requestNumber" :min="0" controls-position="right" />
-          </el-form-item>
-          <el-form-item label="排序号">
-            <el-input-number v-model="itemForm.sortNumber" :min="0" controls-position="right" />
+            <el-input-number v-model="itemForm.requestNumber" :min="0.01" controls-position="right" />
           </el-form-item>
         </div>
         <el-form-item label="备注">
           <el-input v-model="itemForm.remark" :rows="3" type="textarea" placeholder="填写备注" />
         </el-form-item>
 
-        <el-collapse>
-          <el-collapse-item title="明细系统字段" name="item-system">
-            <el-descriptions class="detail-descriptions" :column="2" border>
-              <el-descriptions-item label="ID">{{ formatEmpty(itemForm.id) }}</el-descriptions-item>
-              <el-descriptions-item label="创建时间">{{ formatDateTime(itemForm.createTime) }}</el-descriptions-item>
-              <el-descriptions-item label="更新时间">{{ formatDateTime(itemForm.updateTime) }}</el-descriptions-item>
-              <el-descriptions-item label="删除标记">{{ formatEmpty(itemForm.deleted) }}</el-descriptions-item>
-            </el-descriptions>
-          </el-collapse-item>
-        </el-collapse>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -787,6 +850,63 @@ onMounted(loadData)
           <el-button type="primary" :loading="itemFormLoading" @click="submitItemForm">保存</el-button>
         </div>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="materialDialogVisible" title="选择物料" width="960px">
+      <div class="filter-section">
+        <el-form :model="materialQuery" class="filter-grid filter-grid--4" label-position="top">
+          <el-form-item label="物料编码">
+            <el-input v-model="materialQuery.code" clearable placeholder="输入物料编码" @keyup.enter="handleMaterialSearch" />
+          </el-form-item>
+          <el-form-item label="物料名称">
+            <el-input v-model="materialQuery.name" clearable placeholder="输入物料名称" @keyup.enter="handleMaterialSearch" />
+          </el-form-item>
+          <el-form-item label="规格型号">
+            <el-input
+              v-model="materialQuery.specification"
+              clearable
+              placeholder="输入规格型号"
+              @keyup.enter="handleMaterialSearch"
+            />
+          </el-form-item>
+          <el-form-item class="filter-actions">
+            <el-button @click="handleMaterialReset">
+              <el-icon><Refresh /></el-icon>
+              重置
+            </el-button>
+            <el-button type="primary" @click="handleMaterialSearch">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+      <div class="table-wrap">
+        <el-table v-loading="materialLoading" :data="materialRows" row-key="id" table-layout="fixed">
+          <el-table-column prop="code" label="物料编码" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="name" label="物料名称" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="specification" label="规格型号" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="unit" label="单位" width="88" />
+          <el-table-column prop="categoryName" label="分类" min-width="120" show-overflow-tooltip />
+          <el-table-column label="操作" width="96" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="selectMaterial(row)">选择</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="materialQuery.pageNum"
+          v-model:page-size="materialQuery.pageSize"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50]"
+          :total="materialTotal"
+          @size-change="handleMaterialSizeChange"
+          @current-change="handleMaterialCurrentChange"
+        />
+      </div>
     </el-dialog>
   </div>
 </template>

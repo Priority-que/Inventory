@@ -17,6 +17,8 @@ public class PurchaseRequestQuery {
     private String requestNo;
     @Schema(description = "标题")
     private String title;
+    @Schema(description = "申请人ID")
+    private Long applicantId;
     @Schema(description = "所属部门")
     private String dept;
     @Schema(description = "提交时间开始")

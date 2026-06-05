@@ -25,6 +25,15 @@
             <if test="q.status !=null and q.status !=''">
                 and a.status =#{q.status}
             </if>
+            <if test="q.pendingInboundOnly != null and q.pendingInboundOnly">
+                and not exists (
+                    select 1
+                    from inbound i
+                    where i.arrival_id = a.id
+                      and i.deleted = 0
+                      and i.status != 'CANCELLED'
+                )
+            </if>
         </where>
         order by a.create_time desc, a.id desc
     </select>

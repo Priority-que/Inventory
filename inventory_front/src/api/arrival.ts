@@ -11,6 +11,7 @@ export interface ArrivalQuery {
   arrivalDateBegin?: string
   arrivalDateEnd?: string
   status?: string
+  pendingInboundOnly?: boolean
 }
 
 export interface ArrivalItemDTO {

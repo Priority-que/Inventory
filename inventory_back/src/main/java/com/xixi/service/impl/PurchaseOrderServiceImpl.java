@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.xixi.util.SecurityUtils.getCurrentUserId;
+import static com.xixi.util.SecurityUtils.getCurrentUserRoleCodes;
 
 @Service
 @RequiredArgsConstructor
@@ -47,12 +48,45 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     public IPage<PurchaseOrderVO> getPurchaseOrderPage(PurchaseOrderQuery purchaseOrderQuery) {
         IPage<PurchaseOrderVO> page = new Page<>(purchaseOrderQuery.getPageNum(), purchaseOrderQuery.getPageSize());
+        Long currentSupplierId = getCurrentSupplierIdForQuery();
+        if (currentSupplierId != null) {
+            purchaseOrderQuery.setSupplierId(currentSupplierId);
+        } else if (isPlainPurchaser()) {
+            Long currentUserId = getCurrentUserId();
+            purchaseOrderQuery.setPurchaserId(currentUserId == null ? -1L : currentUserId);
+        }
         return purchaseOrderMapper.getPurchaseOrderPage(page, purchaseOrderQuery);
     }
 
     @Override
+    public Result getSupplierPurchaseOrderPage(PurchaseOrderQuery purchaseOrderQuery) {
+        if (!hasCurrentRole("SUPPLIER")) {
+            return Result.error("当前账号不是供应商角色");
+        }
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            return Result.error("当前登录用户不存在");
+        }
+        Supplier supplier = supplierMapper.getSupplierByUserId(currentUserId);
+        if (supplier == null) {
+            return Result.error("当前账号未绑定供应商档案");
+        }
+        if (!"ACTIVE".equals(supplier.getStatus())) {
+            return Result.error("当前供应商状态不可查看订单");
+        }
+
+        purchaseOrderQuery.setSupplierId(supplier.getId());
+        IPage<PurchaseOrderVO> page = new Page<>(purchaseOrderQuery.getPageNum(), purchaseOrderQuery.getPageSize());
+        return Result.success(purchaseOrderMapper.getPurchaseOrderPage(page, purchaseOrderQuery));
+    }
+
+    @Override
     public PurchaseOrderVO getPurchaseOrderById(Long id) {
-        return purchaseOrderMapper.getPurchaseOrderById(id);
+        PurchaseOrderVO purchaseOrder = purchaseOrderMapper.getPurchaseOrderById(id);
+        if (purchaseOrder == null || !canAccessPurchaseOrder(purchaseOrder)) {
+            return null;
+        }
+        return purchaseOrder;
     }
 
     @Transactional
@@ -76,7 +110,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (purchaseOrder.getSupplierId() == null) {
             return Result.error("供应商Id为空");
         }
-        purchaseOrder.setPurchaserId(currentUserId);
         if (purchaseOrder.getPlanDate() == null) {
             return Result.error("计划交期为空");
         }
@@ -99,9 +132,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (purchaseRequest == null) {
             return Result.error("采购申请单不存在");
         }
+        if (!currentUserId.equals(purchaseRequest.getApplicantId())) {
+            return Result.error("只能基于自己的采购申请生成采购订单");
+        }
         if (!"APPROVED".equals(purchaseRequest.getStatus())) {
             return Result.error("采购申请单未通过审核");
         }
+        purchaseOrder.setPurchaserId(purchaseRequest.getApplicantId());
 
         Supplier supplier = supplierMapper.getSupplierById(purchaseOrder.getSupplierId());
         if (supplier == null) {
@@ -150,6 +187,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         purchaseOrder.setOrderNo(generateOrderNo(requestId));
         purchaseOrder.setStatus("WAIT_CONFIRM");
+        purchaseOrder.setSupplierDate(null);
+        purchaseOrder.setSupplierNote(null);
+        purchaseOrder.setConfirmTime(null);
         purchaseOrder.setTotalAmount(totalAmount);
         if (purchaseOrderMapper.insert(purchaseOrder) <= 0) {
             return Result.error("添加采购订单主表失败");
@@ -203,6 +243,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (purchaseOrderStatus == null) {
             return Result.error("采购订单不存在");
         }
+        if (!canManagePurchaserOrder(purchaseOrderStatus.getPurchaserId())) {
+            return Result.error("只能维护自己的采购订单");
+        }
         if (!"WAIT_CONFIRM".equals(purchaseOrderStatus.getStatus())) {
             return Result.error("采购订单状态错误");
         }
@@ -234,6 +277,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (purchaseOrderStatus == null) {
             return Result.error("采购订单不存在");
         }
+        if (!canManagePurchaserOrder(purchaseOrderStatus.getPurchaserId())) {
+            return Result.error("只能维护自己的采购订单");
+        }
         if (!"WAIT_CONFIRM".equals(purchaseOrderStatus.getStatus())) {
             return Result.error("采购订单状态错误");
         }
@@ -257,6 +303,63 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @OperLogRecord(
             logType = "BUSINESS",
             moduleName = "采购订单",
+            operationType = "CONFIRM",
+            operationDesc = "供应商确认采购订单",
+            bizType = "PURCHASE_ORDER"
+    )
+    public Result confirmPurchaseOrder(PurchaseOrderDTO purchaseOrderDTO) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            return Result.error("当前登录用户不存在");
+        }
+        if (purchaseOrderDTO.getId() == null) {
+            return Result.error("采购订单ID不能为空");
+        }
+        if (purchaseOrderDTO.getSupplierDate() == null) {
+            return Result.error("供应商承诺日期不能为空");
+        }
+
+        Supplier currentSupplier = supplierMapper.getSupplierByUserId(currentUserId);
+        if (currentSupplier == null) {
+            return Result.error("当前账号未绑定供应商档案");
+        }
+        if (!"ACTIVE".equals(currentSupplier.getStatus())) {
+            return Result.error("当前供应商状态不可确认订单");
+        }
+
+        Long lockId = purchaseOrderMapper.lockById(purchaseOrderDTO.getId());
+        if (lockId == null) {
+            return Result.error("采购订单不存在");
+        }
+
+        PurchaseOrder purchaseOrderStatus = purchaseOrderMapper.selectById(purchaseOrderDTO.getId());
+        if (purchaseOrderStatus == null) {
+            return Result.error("采购订单不存在");
+        }
+        if (!currentSupplier.getId().equals(purchaseOrderStatus.getSupplierId())) {
+            return Result.error("只能确认本供应商的采购订单");
+        }
+        if (!"WAIT_CONFIRM".equals(purchaseOrderStatus.getStatus())) {
+            return Result.error("采购订单状态不是待确认");
+        }
+
+        PurchaseOrder purchaseOrder = new PurchaseOrder();
+        purchaseOrder.setId(purchaseOrderDTO.getId());
+        purchaseOrder.setStatus("IN_PROGRESS");
+        purchaseOrder.setSupplierDate(purchaseOrderDTO.getSupplierDate());
+        purchaseOrder.setSupplierNote(purchaseOrderDTO.getSupplierNote());
+        purchaseOrder.setConfirmTime(LocalDateTime.now());
+        if (purchaseOrderMapper.updateById(purchaseOrder) > 0) {
+            return Result.success("供应商确认采购订单成功");
+        }
+        return Result.error("供应商确认采购订单失败");
+    }
+
+    @Transactional
+    @Override
+    @OperLogRecord(
+            logType = "BUSINESS",
+            moduleName = "采购订单",
             operationType = "CLOSE",
             operationDesc = "关闭采购订单",
             bizType = "PURCHASE_ORDER"
@@ -271,6 +374,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         PurchaseOrder purchaseOrderStatus = purchaseOrderMapper.selectById(purchaseOrderDTO.getId());
         if (purchaseOrderStatus == null) {
             return Result.error("采购订单不存在");
+        }
+        if (!canManagePurchaserOrder(purchaseOrderStatus.getPurchaserId())) {
+            return Result.error("只能维护自己的采购订单");
         }
         if (!"IN_PROGRESS".equals(purchaseOrderStatus.getStatus())
                 && !"PARTIAL_ARRIVAL".equals(purchaseOrderStatus.getStatus())) {
@@ -290,5 +396,60 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     private String generateOrderNo(Long requestId) {
         return "PO" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS")) + requestId;
+    }
+
+    private Long getCurrentSupplierIdForQuery() {
+        if (!hasCurrentRole("SUPPLIER")) {
+            return null;
+        }
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            return -1L;
+        }
+        Supplier supplier = supplierMapper.getSupplierByUserId(currentUserId);
+        return supplier == null ? -1L : supplier.getId();
+    }
+
+    private boolean canAccessSupplierOrder(Long supplierId) {
+        if (!hasCurrentRole("SUPPLIER")) {
+            return true;
+        }
+        Long currentSupplierId = getCurrentSupplierIdForQuery();
+        return currentSupplierId != null && currentSupplierId.equals(supplierId);
+    }
+
+    private boolean canAccessPurchaseOrder(PurchaseOrderVO purchaseOrder) {
+        if (hasCurrentRole("SUPPLIER")) {
+            return canAccessSupplierOrder(purchaseOrder.getSupplierId());
+        }
+        if (isPlainPurchaser()) {
+            Long currentUserId = getCurrentUserId();
+            return currentUserId != null && currentUserId.equals(purchaseOrder.getPurchaserId());
+        }
+        return true;
+    }
+
+    private boolean canManagePurchaserOrder(Long purchaserId) {
+        if (hasCurrentRole("SUPPLIER")) {
+            return false;
+        }
+        if (isPlainPurchaser()) {
+            Long currentUserId = getCurrentUserId();
+            return currentUserId != null && currentUserId.equals(purchaserId);
+        }
+        return true;
+    }
+
+    private boolean isPlainPurchaser() {
+        List<String> roleCodes = getCurrentUserRoleCodes();
+        return roleCodes != null
+                && roleCodes.contains("PURCHASER")
+                && !roleCodes.contains("ADMIN")
+                && !roleCodes.contains("PURCHASE_MANAGER");
+    }
+
+    private boolean hasCurrentRole(String roleCode) {
+        List<String> roleCodes = getCurrentUserRoleCodes();
+        return roleCodes != null && roleCodes.contains(roleCode);
     }
 }

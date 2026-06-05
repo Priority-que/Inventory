@@ -27,6 +27,12 @@ public class PurchaseRequestController {
         IPage<PurchaseRequestPageVO> page = purchaseRequestService.getPurchaseRequestPage(purchaseRequestQuery);
         return Result.success(page);
     }
+    @Operation(summary = "分页查询我的已通过采购申请", operationId = "getMyApprovedPurchaseRequestPage")
+    @GetMapping("/getMyApprovedPurchaseRequestPage")
+    public Result getMyApprovedPurchaseRequestPage(PurchaseRequestQuery purchaseRequestQuery) {
+        IPage<PurchaseRequestPageVO> page = purchaseRequestService.getMyApprovedPurchaseRequestPage(purchaseRequestQuery);
+        return Result.success(page);
+    }
     @Operation(summary = "查询采购申请详情", operationId = "getPurchaseRequestById")
     @GetMapping("/getPurchaseRequestById/{id}")
     public Result getPurchaseRequestById(@PathVariable Long id) {

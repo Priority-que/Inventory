@@ -12,16 +12,16 @@ import {
   type InboundItemVO,
   type InboundVO,
 } from '@/api/inbound'
-import { getArrivalByIdApi, type ArrivalItemVO, type ArrivalVO } from '@/api/arrival'
-import { getOptionLabel, getOptionType, inboundStatusOptions } from '@/constants/business'
-import { formatDateTime, formatEmpty } from '@/utils/format'
+import { getArrivalByIdApi, getArrivalPageApi, type ArrivalItemVO, type ArrivalVO } from '@/api/arrival'
+import { arrivalStatusOptions, getOptionLabel, getOptionType, inboundStatusOptions } from '@/constants/business'
+import { formatDate, formatDateTime, formatEmpty } from '@/utils/format'
 
 const route = useRoute()
 
 const canManage = computed(() => route.path.startsWith('/warehouse'))
 const pageTitle = computed(() => String(route.meta.title || '入库管理'))
 const pageSubtitle = computed(() =>
-  canManage.value ? '维护入库单、确认入库状态与明细结果' : '查看入库单状态、仓库流转和明细字段',
+  canManage.value ? '生成入库单、确认入库并更新库存' : '查看入库单状态、仓库流转和明细结果',
 )
 
 const loading = ref(false)
@@ -51,6 +51,21 @@ const inboundForm = reactive<InboundDTO>({
 })
 const previewArrival = ref<ArrivalVO | null>(null)
 const previewArrivalItems = ref<ArrivalItemVO[]>([])
+const selectedArrival = ref<ArrivalVO | null>(null)
+
+const arrivalDialogVisible = ref(false)
+const arrivalLoading = ref(false)
+const arrivalRows = ref<ArrivalVO[]>([])
+const arrivalTotal = ref(0)
+const arrivalQuery = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  arrivalNo: '',
+  orderNo: '',
+  warehouseName: '',
+  status: '',
+  pendingInboundOnly: true,
+})
 
 const detailVisible = ref(false)
 const detailLoading = ref(false)
@@ -58,7 +73,7 @@ const detail = ref<InboundVO | null>(null)
 const detailItems = ref<InboundItemVO[]>([])
 
 const formRules: FormRules<InboundDTO> = {
-  arrivalId: [{ required: true, message: '请输入到货 ID', trigger: 'blur' }],
+  arrivalId: [{ required: true, message: '请选择到货单', trigger: 'change' }],
 }
 
 function syncInboundTimeRange() {
@@ -107,17 +122,74 @@ function resetForm() {
   })
   previewArrival.value = null
   previewArrivalItems.value = []
+  selectedArrival.value = null
   formRef.value?.clearValidate()
 }
 
 function openCreateDialog() {
   resetForm()
   dialogVisible.value = true
+  loadSelectableArrivals()
+}
+
+async function loadSelectableArrivals() {
+  arrivalLoading.value = true
+  try {
+    const result = await getArrivalPageApi(arrivalQuery)
+    arrivalRows.value = result.records
+    arrivalTotal.value = result.total
+  } finally {
+    arrivalLoading.value = false
+  }
+}
+
+function openArrivalDialog() {
+  arrivalDialogVisible.value = true
+  if (!arrivalRows.value.length) {
+    loadSelectableArrivals()
+  }
+}
+
+function handleArrivalSearch() {
+  arrivalQuery.pageNum = 1
+  loadSelectableArrivals()
+}
+
+function handleArrivalReset() {
+  Object.assign(arrivalQuery, {
+    pageNum: 1,
+    pageSize: 10,
+    arrivalNo: '',
+    orderNo: '',
+    warehouseName: '',
+    status: '',
+    pendingInboundOnly: true,
+  })
+  loadSelectableArrivals()
+}
+
+async function selectArrival(row: ArrivalVO) {
+  selectedArrival.value = row
+  inboundForm.arrivalId = row.id
+  arrivalDialogVisible.value = false
+  formRef.value?.validateField('arrivalId')
+  await loadArrivalPreview()
+}
+
+function handleArrivalSizeChange(size: number) {
+  arrivalQuery.pageSize = size
+  arrivalQuery.pageNum = 1
+  loadSelectableArrivals()
+}
+
+function handleArrivalCurrentChange(page: number) {
+  arrivalQuery.pageNum = page
+  loadSelectableArrivals()
 }
 
 async function loadArrivalPreview() {
   if (!inboundForm.arrivalId) {
-    ElMessage.warning('请先输入到货 ID')
+    ElMessage.warning('请先选择到货单')
     return
   }
 
@@ -125,6 +197,7 @@ async function loadArrivalPreview() {
   try {
     const result = await getArrivalByIdApi(inboundForm.arrivalId)
     previewArrival.value = result
+    selectedArrival.value = result
     previewArrivalItems.value = result.items || []
     ElMessage.success('已加载到货详情')
   } finally {
@@ -275,13 +348,9 @@ onMounted(loadData)
 
       <div class="table-wrap">
         <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed">
-          <el-table-column prop="id" label="ID" width="88" fixed="left" />
-          <el-table-column prop="inboundNo" label="入库单号" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="arrivalId" label="到货 ID" width="100" />
+          <el-table-column prop="inboundNo" label="入库单号" min-width="160" fixed="left" show-overflow-tooltip />
           <el-table-column prop="arrivalNo" label="到货单号" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="orderId" label="订单 ID" width="100" />
           <el-table-column prop="orderNo" label="订单号" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="warehouseId" label="仓库 ID" width="100" />
           <el-table-column prop="warehouseName" label="仓库名称" min-width="140" show-overflow-tooltip />
           <el-table-column prop="inboundNumber" label="入库数量" min-width="110" />
           <el-table-column label="状态" width="112">
@@ -291,20 +360,12 @@ onMounted(loadData)
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="operatorId" label="操作人 ID" width="110" />
           <el-table-column label="入库时间" min-width="168">
             <template #default="{ row }">{{ formatDateTime(row.inboundTime) }}</template>
           </el-table-column>
           <el-table-column label="备注" min-width="180" show-overflow-tooltip>
             <template #default="{ row }">{{ formatEmpty(row.remark) }}</template>
           </el-table-column>
-          <el-table-column label="创建时间" min-width="168">
-            <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
-          </el-table-column>
-          <el-table-column label="更新时间" min-width="168">
-            <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
-          </el-table-column>
-          <el-table-column prop="deleted" label="删除标记" width="96" />
           <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <div class="table-actions">
@@ -334,8 +395,16 @@ onMounted(loadData)
     <el-dialog v-model="dialogVisible" title="新增入库单" width="1100px" @closed="resetForm">
       <el-form ref="formRef" v-loading="formLoading" :model="inboundForm" :rules="formRules" label-width="108px">
         <div class="dialog-grid">
-          <el-form-item label="到货 ID" prop="arrivalId">
-            <el-input-number v-model="inboundForm.arrivalId" :min="1" controls-position="right" />
+          <el-form-item label="到货单" prop="arrivalId">
+            <el-input
+              :model-value="selectedArrival ? `${selectedArrival.arrivalNo || ''} / ${selectedArrival.orderNo || ''}` : ''"
+              readonly
+              placeholder="选择待入库到货单"
+            >
+              <template #append>
+                <el-button @click="openArrivalDialog">选择</el-button>
+              </template>
+            </el-input>
           </el-form-item>
         </div>
         <el-form-item label="备注">
@@ -345,8 +414,8 @@ onMounted(loadData)
         <section class="content-panel form-embed-panel">
           <div class="panel-toolbar">
             <div>
-              <div class="page-title" style="font-size: 16px">到货预览字段</div>
-              <div class="page-desc">新增入库单时，保留 `arrivalId` 对应到货单及其明细预览</div>
+              <div class="page-title" style="font-size: 16px">到货预览</div>
+              <div class="page-desc">核对本次准备入库的到货单和合格数量</div>
             </div>
             <el-button :loading="previewLoading" @click="loadArrivalPreview">
               <el-icon><Refresh /></el-icon>
@@ -355,17 +424,18 @@ onMounted(loadData)
           </div>
 
           <div v-if="previewArrival" class="detail-card preview-card">
-            <h3 class="detail-card__title">到货单字段</h3>
+            <h3 class="detail-card__title">到货信息</h3>
             <el-descriptions class="detail-descriptions" :column="2" border>
               <el-descriptions-item label="到货单号">{{ formatEmpty(previewArrival.arrivalNo) }}</el-descriptions-item>
               <el-descriptions-item label="订单号">{{ formatEmpty(previewArrival.orderNo) }}</el-descriptions-item>
               <el-descriptions-item label="仓库名称">{{ formatEmpty(previewArrival.warehouseName) }}</el-descriptions-item>
+              <el-descriptions-item label="到货日期">{{ formatDate(previewArrival.arrivalDate) }}</el-descriptions-item>
               <el-descriptions-item label="到货数量">{{ formatEmpty(previewArrival.arrivalNumber) }}</el-descriptions-item>
               <el-descriptions-item label="合格数量">{{ formatEmpty(previewArrival.qualifiedNumber) }}</el-descriptions-item>
               <el-descriptions-item label="不合格数量">{{ formatEmpty(previewArrival.unqualifiedNumber) }}</el-descriptions-item>
               <el-descriptions-item label="状态">
-                <el-tag class="status-tag" :type="getOptionType(inboundStatusOptions, 'PENDING')" effect="plain">
-                  待生成入库单
+                <el-tag class="status-tag" :type="getOptionType(arrivalStatusOptions, previewArrival.status)" effect="plain">
+                  {{ getOptionLabel(arrivalStatusOptions, previewArrival.status) }}
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="异常说明">{{ formatEmpty(previewArrival.abnormalNote) }}</el-descriptions-item>
@@ -374,9 +444,6 @@ onMounted(loadData)
 
           <div class="table-wrap">
             <el-table v-loading="previewLoading" :data="previewArrivalItems" table-layout="fixed">
-              <el-table-column prop="id" label="到货明细 ID" width="120" />
-              <el-table-column prop="orderItemId" label="订单明细 ID" width="120" />
-              <el-table-column prop="materialId" label="物料 ID" width="100" />
               <el-table-column prop="materialCode" label="物料编码" min-width="140" show-overflow-tooltip />
               <el-table-column prop="materialName" label="物料名称" min-width="160" show-overflow-tooltip />
               <el-table-column prop="specification" label="规格型号" min-width="150" show-overflow-tooltip />
@@ -387,7 +454,6 @@ onMounted(loadData)
               <el-table-column label="异常说明" min-width="180" show-overflow-tooltip>
                 <template #default="{ row }">{{ formatEmpty(row.abnormalNote) }}</template>
               </el-table-column>
-              <el-table-column prop="sortNumber" label="排序号" width="90" />
               <el-table-column label="备注" min-width="180" show-overflow-tooltip>
                 <template #default="{ row }">{{ formatEmpty(row.remark) }}</template>
               </el-table-column>
@@ -403,18 +469,92 @@ onMounted(loadData)
       </template>
     </el-dialog>
 
+    <el-dialog v-model="arrivalDialogVisible" title="选择待入库到货单" width="980px">
+      <div class="filter-section">
+        <el-form :model="arrivalQuery" class="filter-grid filter-grid--4" label-position="top">
+          <el-form-item label="到货单号">
+            <el-input
+              v-model="arrivalQuery.arrivalNo"
+              clearable
+              placeholder="输入到货单号"
+              @keyup.enter="handleArrivalSearch"
+            />
+          </el-form-item>
+          <el-form-item label="订单号">
+            <el-input v-model="arrivalQuery.orderNo" clearable placeholder="输入订单号" @keyup.enter="handleArrivalSearch" />
+          </el-form-item>
+          <el-form-item label="仓库名称">
+            <el-input
+              v-model="arrivalQuery.warehouseName"
+              clearable
+              placeholder="输入仓库名称"
+              @keyup.enter="handleArrivalSearch"
+            />
+          </el-form-item>
+          <el-form-item label="到货状态">
+            <el-select v-model="arrivalQuery.status" clearable placeholder="全部状态" @change="handleArrivalSearch">
+              <el-option v-for="item in arrivalStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item class="filter-actions">
+            <el-button @click="handleArrivalReset">
+              <el-icon><Refresh /></el-icon>
+              重置
+            </el-button>
+            <el-button type="primary" @click="handleArrivalSearch">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+      <div class="table-wrap">
+        <el-table v-loading="arrivalLoading" :data="arrivalRows" row-key="id" table-layout="fixed">
+          <el-table-column prop="arrivalNo" label="到货单号" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="orderNo" label="订单号" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="warehouseName" label="仓库名称" min-width="140" show-overflow-tooltip />
+          <el-table-column label="到货日期" min-width="128">
+            <template #default="{ row }">{{ formatDate(row.arrivalDate) }}</template>
+          </el-table-column>
+          <el-table-column prop="arrivalNumber" label="到货数量" min-width="110" />
+          <el-table-column prop="qualifiedNumber" label="合格数量" min-width="110" />
+          <el-table-column prop="unqualifiedNumber" label="不合格数量" min-width="120" />
+          <el-table-column label="状态" width="112">
+            <template #default="{ row }">
+              <el-tag class="status-tag" :type="getOptionType(arrivalStatusOptions, row.status)" effect="plain">
+                {{ getOptionLabel(arrivalStatusOptions, row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="96" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="selectArrival(row)">选择</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="arrivalQuery.pageNum"
+          v-model:page-size="arrivalQuery.pageSize"
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50]"
+          :total="arrivalTotal"
+          @size-change="handleArrivalSizeChange"
+          @current-change="handleArrivalCurrentChange"
+        />
+      </div>
+    </el-dialog>
+
     <el-drawer v-model="detailVisible" :title="pageTitle + '详情'" size="1180px">
       <div v-loading="detailLoading" class="detail-section">
         <div class="detail-card">
-          <h3 class="detail-card__title">入库单字段</h3>
+          <h3 class="detail-card__title">入库信息</h3>
           <el-descriptions v-if="detail" class="detail-descriptions" :column="2" border>
-            <el-descriptions-item label="ID">{{ detail.id }}</el-descriptions-item>
             <el-descriptions-item label="入库单号">{{ formatEmpty(detail.inboundNo) }}</el-descriptions-item>
-            <el-descriptions-item label="到货 ID">{{ formatEmpty(detail.arrivalId) }}</el-descriptions-item>
             <el-descriptions-item label="到货单号">{{ formatEmpty(detail.arrivalNo) }}</el-descriptions-item>
-            <el-descriptions-item label="订单 ID">{{ formatEmpty(detail.orderId) }}</el-descriptions-item>
             <el-descriptions-item label="订单号">{{ formatEmpty(detail.orderNo) }}</el-descriptions-item>
-            <el-descriptions-item label="仓库 ID">{{ formatEmpty(detail.warehouseId) }}</el-descriptions-item>
             <el-descriptions-item label="仓库名称">{{ formatEmpty(detail.warehouseName) }}</el-descriptions-item>
             <el-descriptions-item label="入库数量">{{ formatEmpty(detail.inboundNumber) }}</el-descriptions-item>
             <el-descriptions-item label="状态">
@@ -422,45 +562,28 @@ onMounted(loadData)
                 {{ getOptionLabel(inboundStatusOptions, detail.status) }}
               </el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="操作人 ID">{{ formatEmpty(detail.operatorId) }}</el-descriptions-item>
             <el-descriptions-item label="入库时间">{{ formatDateTime(detail.inboundTime) }}</el-descriptions-item>
             <el-descriptions-item label="备注">{{ formatEmpty(detail.remark) }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ formatDateTime(detail.createTime) }}</el-descriptions-item>
-            <el-descriptions-item label="更新时间">{{ formatDateTime(detail.updateTime) }}</el-descriptions-item>
-            <el-descriptions-item label="删除标记">{{ formatEmpty(detail.deleted) }}</el-descriptions-item>
           </el-descriptions>
         </div>
 
         <section class="content-panel">
           <div class="panel-toolbar">
             <div>
-              <div class="page-title" style="font-size: 16px">入库明细字段</div>
-              <div class="page-desc">保留到货明细引用、物料信息、数量、排序和系统时间字段</div>
+              <div class="page-title" style="font-size: 16px">入库明细</div>
+              <div class="page-desc">查看本次入库的物料和合格入库数量</div>
             </div>
           </div>
           <div class="table-wrap">
             <el-table :data="detailItems" table-layout="fixed">
-              <el-table-column prop="id" label="ID" width="88" />
-              <el-table-column prop="inboundId" label="入库 ID" width="100" />
-              <el-table-column prop="arrivalItemId" label="到货明细 ID" width="120" />
-              <el-table-column prop="orderItemId" label="订单明细 ID" width="120" />
-              <el-table-column prop="materialId" label="物料 ID" width="100" />
               <el-table-column prop="materialCode" label="物料编码" min-width="140" show-overflow-tooltip />
               <el-table-column prop="materialName" label="物料名称" min-width="160" show-overflow-tooltip />
               <el-table-column prop="specification" label="规格型号" min-width="150" show-overflow-tooltip />
               <el-table-column prop="unit" label="单位" width="88" />
               <el-table-column prop="inboundNumber" label="入库数量" min-width="110" />
-              <el-table-column prop="sortNumber" label="排序号" width="90" />
               <el-table-column label="备注" min-width="180" show-overflow-tooltip>
                 <template #default="{ row }">{{ formatEmpty(row.remark) }}</template>
               </el-table-column>
-              <el-table-column label="创建时间" min-width="168">
-                <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
-              </el-table-column>
-              <el-table-column label="更新时间" min-width="168">
-                <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
-              </el-table-column>
-              <el-table-column prop="deleted" label="删除标记" width="96" />
             </el-table>
           </div>
         </section>

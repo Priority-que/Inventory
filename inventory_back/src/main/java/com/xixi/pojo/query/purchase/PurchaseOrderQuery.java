@@ -27,5 +27,9 @@ public class PurchaseOrderQuery {
     private LocalDate planDateEnd;
     @Schema(description = "采购订单状态，WAIT_CONFIRM待供应商确认，IN_PROGRESS履约中，PARTIAL_ARRIVAL部分到货，COMPLETED已完成，CLOSED已关闭，CANCELLED已取消")
     private String status;
+    @Schema(description = "供应商ID")
+    private Long supplierId;
+    @Schema(description = "采购员ID")
+    private Long purchaserId;
 }
 

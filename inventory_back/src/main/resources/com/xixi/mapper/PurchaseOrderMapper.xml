@@ -26,10 +26,18 @@
             <if test="q.status !=null and q.status != ''">
                 and po.status = #{q.status}
             </if>
+            <if test="q.supplierId != null">
+                and po.supplier_id = #{q.supplierId}
+            </if>
+            <if test="q.purchaserId != null">
+                and po.purchaser_id = #{q.purchaserId}
+            </if>
             <if test="q.planDateBegin !=null and q.planDateEnd !=null">
                 and po.plan_date between #{q.planDateBegin} and #{q.planDateEnd}
             </if>
+            and po.deleted = 0
         </where>
+        order by po.create_time desc
     </select>
     <select id="getPurchaseOrderById" resultType="com.xixi.pojo.vo.purchase.PurchaseOrderVO">
         select po.id,po.order_no,po.request_id,po.supplier_id,po.purchaser_id,po.plan_date,po.supplier_date,po.confirm_time,
@@ -40,6 +48,7 @@
         left join supplier s on po.supplier_id = s.id
         left join user u on po.purchaser_id = u.id
         where po.id = #{id}
+          and po.deleted = 0
     </select>
     <select id="lockById" resultType="Long">
         select id

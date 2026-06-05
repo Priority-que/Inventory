@@ -25,5 +25,8 @@ public class ArrivalQuery {
     private LocalDate arrivalDateEnd;
     @Schema(description = "到货状态，NORMAL正常到货，ABNORMAL异常到货")
     private String status;
+
+    @Schema(description = "是否只查询未生成有效入库单的到货单")
+    private Boolean pendingInboundOnly;
 }
 

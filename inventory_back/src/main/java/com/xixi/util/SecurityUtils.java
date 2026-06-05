@@ -34,6 +34,9 @@ public class SecurityUtils {
     }
     public static List<String> getCurrentUserRoleCodes(){
         LoginUser loginUser = getCurrentLoginUser();
+        if(loginUser == null){
+            return null;
+        }
         List<String> list = loginUser.getRoleCodes();
         if(list == null){
             return null;

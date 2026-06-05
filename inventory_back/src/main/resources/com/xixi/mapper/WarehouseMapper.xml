@@ -8,7 +8,7 @@
             <if test="q.code != null and q.code != ''">
                 and code like concat('%',#{q.code},'%')
             </if>
-            <if test="q.name != null and q.code !=  ''">
+            <if test="q.name != null and q.name != ''">
                 and name like concat('%',#{q.name},'%')
             </if>
             <if test="q.address !=null and q.address != ''">
@@ -17,7 +17,7 @@
             <if test="q.managerName !=null and q.managerName != ''">
                 and manager_name like concat('%',#{q.managerName},'%')
             </if>
-            <if test="q.status !=null and q.status != ' '">
+            <if test="q.status != null and q.status != ''">
                 and status like concat('%',#{q.status},'%')
             </if>
         </where>

@@ -14,8 +14,11 @@
             <if test="q.title != null and q.title != ''">
                 and pr.title like concat('%',#{q.title},'%')
             </if>
+            <if test="q.applicantId != null">
+                and pr.applicant_id = #{q.applicantId}
+            </if>
             <if test="q.dept != null and q.dept != ''">
-                and pr.dept like concat('%',#{q.requestNo},'%')
+                and pr.dept like concat('%',#{q.dept},'%')
             </if>
             <if test="q.submitTimeBegin !=null and q.submitTimeEnd !=null">
                 and pr.submit_time between #{q.submitTimeBegin} and #{q.submitTimeEnd}
@@ -23,7 +26,9 @@
             <if test="q.status !=null and q.status != ''">
                 and pr.status like concat('%',#{q.status},'%')
             </if>
+            and pr.deleted = 0
         </where>
+        order by pr.create_time desc
     </select>
     <select id="lockById" resultType="Long">
         select id
