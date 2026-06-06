@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { workflowExecuteApi, type WorkflowAgentResponse } from '@/api/agent'
-import { formatEmpty } from '@/utils/format'
+import {
+  agentSessionDetailApi,
+  agentSessionHistoryApi,
+  workflowExecuteApi,
+  type AgentMessage,
+  type AgentSession,
+  type WorkflowAgentResponse,
+} from '@/api/agent'
+import { formatDateTime, formatEmpty } from '@/utils/format'
 
 type ChatRole = 'user' | 'assistant'
 
@@ -31,9 +38,12 @@ interface WarningItem {
 const route = useRoute()
 const messageInput = ref('')
 const sending = ref(false)
+const sessionLoading = ref(false)
+const detailLoading = ref(false)
 const threadId = ref('')
 const sessionId = ref<number>()
 const messages = ref<ChatMessage[]>([])
+const sessionList = ref<AgentSession[]>([])
 const scrollRef = ref<HTMLElement>()
 
 const allQuickActions = [
@@ -93,17 +103,45 @@ const quickActions = computed(() => {
 })
 
 const hasMessages = computed(() => messages.value.length > 0)
-const currentThreadText = computed(() => threadId.value || '新会话')
+const currentSession = computed(() => sessionList.value.find((item) => item.threadId === threadId.value))
+const currentThreadText = computed(() => currentSession.value?.title || threadId.value || '新会话')
 
 function createMessageId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-function createTimeText() {
-  return new Date().toLocaleTimeString('zh-CN', {
+function createTimeText(value?: string | null) {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) {
+    return value ? formatDateTime(value) : ''
+  }
+
+  return date.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function sessionTitle(session: AgentSession) {
+  return session.title || session.threadId || '新会话'
+}
+
+function sessionTime(session: AgentSession) {
+  return formatDateTime(session.lastMessageTime || session.createTime)
+}
+
+function toChatMessage(row: AgentMessage): ChatMessage | null {
+  const role = row.messageRole === 'USER' ? 'user' : row.messageRole === 'ASSISTANT' ? 'assistant' : null
+  if (!role || !row.content) {
+    return null
+  }
+
+  return {
+    id: String(row.id || createMessageId()),
+    role,
+    content: row.content,
+    createdAt: createTimeText(row.createTime),
+  }
 }
 
 function asRecord(value: unknown) {
@@ -246,10 +284,39 @@ function applyWorkflowResponse(message: ChatMessage, result: WorkflowAgentRespon
   }
 }
 
+async function loadSessions() {
+  sessionLoading.value = true
+  try {
+    sessionList.value = await agentSessionHistoryApi()
+  } finally {
+    sessionLoading.value = false
+  }
+}
+
+async function openSession(session: AgentSession) {
+  if (!session.threadId || detailLoading.value) {
+    return
+  }
+
+  detailLoading.value = true
+  try {
+    const detail = await agentSessionDetailApi(session.threadId)
+    const realSession = detail.session || session
+    threadId.value = realSession.threadId || session.threadId
+    sessionId.value = realSession.id
+    messages.value = (detail.messages || [])
+      .map(toChatMessage)
+      .filter((message): message is ChatMessage => Boolean(message))
+    await scrollToBottom()
+  } finally {
+    detailLoading.value = false
+  }
+}
+
 async function sendMessage(content = messageInput.value) {
   const text = content.trim()
 
-  if (!text || sending.value) {
+  if (!text || sending.value || detailLoading.value) {
     return
   }
 
@@ -279,6 +346,11 @@ async function sendMessage(content = messageInput.value) {
       threadId: threadId.value || undefined,
     })
     applyWorkflowResponse(assistantMessage, result)
+    try {
+      await loadSessions()
+    } catch {
+      ElMessage.warning('会话列表刷新失败，请稍后手动刷新')
+    }
   } catch {
     assistantMessage.pending = false
     assistantMessage.content = '本次处理失败，请稍后重试。'
@@ -312,6 +384,10 @@ async function copyAnswer(content: string) {
     ElMessage.warning('当前浏览器不支持自动复制')
   }
 }
+
+onMounted(() => {
+  loadSessions()
+})
 </script>
 
 <template>
@@ -330,28 +406,55 @@ async function copyAnswer(content: string) {
       </div>
     </header>
 
-    <section class="chat-panel">
-      <main ref="scrollRef" class="chat-body" :class="{ 'is-empty': !hasMessages }">
-        <section v-if="!hasMessages" class="welcome-panel">
-          <div class="assistant-mark">
-            <el-icon><MagicStick /></el-icon>
-          </div>
-          <h3>你想分析什么？</h3>
-          <p>直接输入问题，或选择一个常用业务场景开始。</p>
-          <div class="quick-actions">
-            <el-button
-              v-for="item in quickActions"
-              :key="item.title"
-              class="quick-action"
-              @click="sendMessage(item.prompt)"
-            >
-              <el-icon>
-                <component :is="item.icon" />
-              </el-icon>
-              <span>{{ item.title }}</span>
-            </el-button>
-          </div>
-        </section>
+    <div class="agent-workspace">
+      <aside class="session-sidebar">
+        <div class="session-sidebar-header">
+          <strong>历史会话</strong>
+          <el-button link size="small" :loading="sessionLoading" @click="loadSessions">刷新</el-button>
+        </div>
+
+        <div v-loading="sessionLoading" class="session-list">
+          <button
+            v-for="session in sessionList"
+            :key="session.threadId || session.id"
+            class="session-item"
+            :class="{ 'is-active': session.threadId === threadId }"
+            type="button"
+            @click="openSession(session)"
+          >
+            <span class="session-title">{{ sessionTitle(session) }}</span>
+            <span class="session-meta">
+              <span>{{ intentLabel(session.currentIntent) }}</span>
+              <span>{{ sessionTime(session) }}</span>
+            </span>
+          </button>
+
+          <el-empty v-if="!sessionLoading && sessionList.length === 0" :image-size="72" description="暂无历史会话" />
+        </div>
+      </aside>
+
+      <section v-loading="detailLoading" class="chat-panel">
+        <main ref="scrollRef" class="chat-body" :class="{ 'is-empty': !hasMessages }">
+          <section v-if="!hasMessages" class="welcome-panel">
+            <div class="assistant-mark">
+              <el-icon><MagicStick /></el-icon>
+            </div>
+            <h3>你想分析什么？</h3>
+            <p>直接输入问题，或选择一个常用业务场景开始。</p>
+            <div class="quick-actions">
+              <el-button
+                v-for="item in quickActions"
+                :key="item.title"
+                class="quick-action"
+                @click="sendMessage(item.prompt)"
+              >
+                <el-icon>
+                  <component :is="item.icon" />
+                </el-icon>
+                <span>{{ item.title }}</span>
+              </el-button>
+            </div>
+          </section>
 
         <section v-else class="message-list">
           <article
@@ -453,28 +556,34 @@ async function copyAnswer(content: string) {
             <div v-if="message.role === 'user'" class="avatar user-avatar">我</div>
           </article>
         </section>
-      </main>
+        </main>
 
-      <footer class="composer-shell">
-        <div class="composer">
-          <el-input
-            v-model="messageInput"
-            :autosize="{ minRows: 2, maxRows: 6 }"
-            type="textarea"
-            resize="none"
-            placeholder="向智能助手提问，或输入“扫描最近7天采购风险”"
-            @keydown.enter="handleEnter"
-          />
-          <div class="composer-toolbar">
-            <span class="composer-tip">连续对话会复用当前会话标识；新建会话会重新开始业务上下文。</span>
-            <el-button type="primary" :loading="sending" :disabled="!messageInput.trim()" @click="sendMessage()">
-              <el-icon><Promotion /></el-icon>
-              发送
-            </el-button>
+        <footer class="composer-shell">
+          <div class="composer">
+            <el-input
+              v-model="messageInput"
+              :autosize="{ minRows: 2, maxRows: 6 }"
+              type="textarea"
+              resize="none"
+              placeholder="向智能助手提问，或输入“扫描最近7天采购风险”"
+              @keydown.enter="handleEnter"
+            />
+            <div class="composer-toolbar">
+              <span class="composer-tip">连续对话会复用当前会话标识；新建会话会重新开始业务上下文。</span>
+              <el-button
+                type="primary"
+                :loading="sending"
+                :disabled="detailLoading || !messageInput.trim()"
+                @click="sendMessage()"
+              >
+                <el-icon><Promotion /></el-icon>
+                发送
+              </el-button>
+            </div>
           </div>
-        </div>
-      </footer>
-    </section>
+        </footer>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -492,9 +601,99 @@ async function copyAnswer(content: string) {
   gap: 10px;
 }
 
+.agent-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+}
+
+.session-sidebar {
+  width: 284px;
+  flex: 0 0 284px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.session-sidebar-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.session-sidebar-header strong {
+  color: var(--text-main);
+  font-size: 14px;
+}
+
+.session-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.session-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.session-item:hover,
+.session-item:focus {
+  background: #f8fafc;
+}
+
+.session-item.is-active {
+  background: #eff6ff;
+}
+
+.session-title {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.session-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-panel {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -818,6 +1017,15 @@ async function copyAnswer(content: string) {
 
   .quick-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agent-workspace {
+    flex-direction: column;
+  }
+
+  .session-sidebar {
+    width: 100%;
+    flex: 0 0 220px;
   }
 
   .composer-toolbar {

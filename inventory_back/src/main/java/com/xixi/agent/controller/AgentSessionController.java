@@ -25,10 +25,22 @@ public class AgentSessionController {
         return Result.success(agentSessionService.getSessionList(SecurityUtils.getCurrentUserId()));
     }
 
+    @Operation(summary = "查询当前用户AI历史会话", operationId = "history")
+    @GetMapping("/history")
+    public Result history() {
+        return Result.success(agentSessionService.getSessionList(SecurityUtils.getCurrentUserId()));
+    }
+
     @Operation(summary = "查询AI会话消息", operationId = "messages")
     @GetMapping("/messages/{threadId}")
     public Result messages(@PathVariable String threadId) {
         return Result.success(agentSessionService.getMessagesByThreadId(threadId, SecurityUtils.getCurrentUserId()));
+    }
+
+    @Operation(summary = "查询AI历史会话详情", operationId = "historyDetail")
+    @GetMapping("/history/{threadId}")
+    public Result historyDetail(@PathVariable String threadId) {
+        return Result.success(agentSessionService.getSessionDetail(threadId, SecurityUtils.getCurrentUserId()));
     }
 }
 

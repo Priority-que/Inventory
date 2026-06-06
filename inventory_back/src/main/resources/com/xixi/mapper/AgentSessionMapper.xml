@@ -12,4 +12,13 @@
         </if>
         order by last_message_time desc, id desc
     </select>
+
+    <select id="getSessionVOByThreadIdAndUserId" resultType="com.xixi.agent.vo.AgentSessionVO">
+        select id, session_no, thread_id, user_id, title, agent_type,
+               current_intent, status, last_message_time, create_time
+        from agent_session
+        where thread_id = #{threadId}
+          and user_id = #{userId}
+          and deleted = 0
+    </select>
 </mapper>

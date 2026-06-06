@@ -55,6 +55,7 @@ export const purchaseOrderStatusOptions = [
   { label: '待确认', value: 'WAIT_CONFIRM', type: 'warning' },
   { label: '执行中', value: 'IN_PROGRESS', type: 'primary' },
   { label: '部分到货', value: 'PARTIAL_ARRIVAL', type: 'warning' },
+  { label: '待入库', value: 'WAIT_INBOUND', type: 'warning' },
   { label: '已完成', value: 'COMPLETED', type: 'success' },
   { label: '已关闭', value: 'CLOSED', type: 'info' },
   { label: '已取消', value: 'CANCELLED', type: 'danger' },

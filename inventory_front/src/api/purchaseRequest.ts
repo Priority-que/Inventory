@@ -39,6 +39,8 @@ export interface PurchaseRequestPageVO extends PurchaseRequestDTO {
 
 export interface PurchaseRequestVO extends PurchaseRequestDTO {
   id: number
+  applicantName?: string
+  reviewUserName?: string
 }
 
 export interface PurchaseRequestItemDTO {

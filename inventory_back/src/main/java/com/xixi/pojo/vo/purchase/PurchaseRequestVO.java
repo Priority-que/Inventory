@@ -29,6 +29,9 @@ public class PurchaseRequestVO implements Serializable {
     @Schema(description = "申请人ID")
     private Long applicantId;
 
+    @Schema(description = "申请人姓名")
+    private String applicantName;
+
     @Schema(description = "所属部门")
     private String dept;
 
@@ -40,6 +43,9 @@ public class PurchaseRequestVO implements Serializable {
 
     @Schema(description = "审批人ID")
     private Long reviewUserId;
+
+    @Schema(description = "审批人姓名")
+    private String reviewUserName;
 
     @Schema(description = "审批时间")
     private LocalDateTime reviewTime;

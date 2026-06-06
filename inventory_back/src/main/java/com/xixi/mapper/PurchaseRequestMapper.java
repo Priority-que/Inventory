@@ -14,7 +14,11 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface PurchaseRequestMapper extends BaseMapper<PurchaseRequest> {
     IPage<PurchaseRequestPageVO> getPurchaseRequestPage(IPage<PurchaseRequestPageVO> purchaseRequestPageVoIPage, @Param("q") PurchaseRequestQuery purchaseRequestQuery);
-    @Select("select * from purchase_request where id = #{id} and deleted = 0")
+    @Select("select pr.*, au.name as applicantName, ru.name as reviewUserName " +
+            "from purchase_request pr " +
+            "left join user au on pr.applicant_id = au.id " +
+            "left join user ru on pr.review_user_id = ru.id " +
+            "where pr.id = #{id} and pr.deleted = 0")
     PurchaseRequestVO getPurchaseRequestById(Long id);
     Long lockById(Long id);
     @Update("update purchase_request set status = #{status} where id = #{id} and deleted =0")

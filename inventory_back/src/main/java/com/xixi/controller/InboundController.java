@@ -10,6 +10,7 @@ import com.xixi.pojo.vo.Result;
 import com.xixi.pojo.vo.inbound.InboundVO;
 import com.xixi.service.InboundService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +28,7 @@ public class InboundController {
 
     @Operation(summary = "分页查询入库单", operationId = "getInboundPage")
     @GetMapping("/getInboundPage")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE','PURCHASER')")
     public Result getInboundPage(InboundQuery inboundQuery) {
         IPage<InboundVO> page = inboundService.getInboundPage(inboundQuery);
         return Result.success(page);
@@ -34,6 +36,7 @@ public class InboundController {
 
     @Operation(summary = "查询入库单详情", operationId = "getInboundById")
     @GetMapping("/getInboundById/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE','PURCHASER')")
     public Result getInboundById(@PathVariable Long id) {
         InboundVO inboundVO = inboundService.getInboundById(id);
         return Result.success(inboundVO);
@@ -41,18 +44,21 @@ public class InboundController {
 
     @Operation(summary = "新增入库单", operationId = "addInbound")
     @PostMapping("/addInbound")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
     public Result addInbound(@RequestBody InboundDTO inboundDTO) {
         return inboundService.addInbound(inboundDTO);
     }
 
     @Operation(summary = "取消入库单", operationId = "cancelInbound")
     @PutMapping("/cancelInbound")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
     public Result cancelInbound(@RequestBody InboundDTO inboundDTO) {
         return inboundService.cancelInbound(inboundDTO);
     }
 
     @Operation(summary = "确认入库", operationId = "confirmInbound")
     @PutMapping("/confirmInbound")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
     public Result confirmInbound(@RequestBody InboundDTO inboundDTO) {
         return inboundService.confirmInbound(inboundDTO);
     }

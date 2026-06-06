@@ -27,6 +27,8 @@ public interface AgentSessionMapper extends BaseMapper<AgentSession> {
 
     List<AgentSessionVO> getSessionListByUserId(@Param("userId") Long userId);
 
+    AgentSessionVO getSessionVOByThreadIdAndUserId(@Param("threadId") String threadId, @Param("userId") Long userId);
+
     @Update("""
             update agent_session
             set current_intent = #{currentIntent},

@@ -2,6 +2,7 @@ package com.xixi.agent.service;
 
 import com.xixi.agent.entity.AgentSession;
 import com.xixi.agent.vo.AgentMessageVO;
+import com.xixi.agent.vo.AgentSessionDetailVO;
 import com.xixi.agent.vo.AgentSessionVO;
 import com.xixi.agent.vo.WorkflowAgentResponse;
 
@@ -29,5 +30,8 @@ public interface AgentSessionService {
     List<AgentSessionVO> getSessionList(Long userId);
 
     List<AgentMessageVO> getMessagesByThreadId(String threadId, Long userId);
+
+    AgentSessionDetailVO getSessionDetail(String threadId, Long userId);
+
     Map<String, Object> loadStateByThreadId(String threadId);
 }

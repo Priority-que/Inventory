@@ -63,6 +63,7 @@ const supplierStatusTabs = [
   { label: '待确认', value: 'WAIT_CONFIRM' },
   { label: '已确认/履约中', value: 'IN_PROGRESS' },
   { label: '部分到货', value: 'PARTIAL_ARRIVAL' },
+  { label: '待入库', value: 'WAIT_INBOUND' },
   { label: '已完成', value: 'COMPLETED' },
   { label: '全部', value: '' },
 ]

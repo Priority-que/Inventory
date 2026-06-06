@@ -39,3 +39,14 @@ class AgentMessageVO(ApiModel):
     message_type: str = Field(alias="messageType")
     content: str | None = None
     create_time: datetime | None = Field(default=None, alias="createTime")
+
+
+class SessionTitleGenerateRequest(ApiModel):
+    thread_id: str = Field(alias="threadId")
+    force: bool = False
+
+
+class SessionTitleGenerateVO(ApiModel):
+    thread_id: str = Field(alias="threadId")
+    title: str
+    generated_by: str = Field(alias="generatedBy")
