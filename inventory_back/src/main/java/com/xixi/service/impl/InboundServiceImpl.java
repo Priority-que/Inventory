@@ -270,15 +270,23 @@ public class InboundServiceImpl implements InboundService {
             return;
         }
         boolean completed = true;
+        boolean allArrived = true;
         // 所有订单明细都完成入库后，采购订单才进入 COMPLETED。
         for (PurchaseOrderItemVO orderItem : orderItems) {
+            BigDecimal arrivedNumber = orderItem.getArrivedNumber() == null ? BigDecimal.ZERO : orderItem.getArrivedNumber();
+            if (arrivedNumber.compareTo(orderItem.getOrderNumber()) < 0) {
+                allArrived = false;
+            }
             BigDecimal inboundNumber = orderItem.getInboundNumber() == null ? BigDecimal.ZERO : orderItem.getInboundNumber();
             if (inboundNumber.compareTo(orderItem.getOrderNumber()) < 0) {
                 completed = false;
-                break;
             }
         }
-        purchaseOrderMapper.updateStatusById(orderId, completed ? "COMPLETED" : "PARTIAL_ARRIVAL");
+        if (completed) {
+            purchaseOrderMapper.updateStatusById(orderId, "COMPLETED");
+            return;
+        }
+        purchaseOrderMapper.updateStatusById(orderId, allArrived ? "WAIT_INBOUND" : "PARTIAL_ARRIVAL");
     }
 
     private String generateInboundNo(Long arrivalId) {

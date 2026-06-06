@@ -19,10 +19,10 @@ class Settings(BaseSettings):
     model_api_key: str = ""
     ai_dashscope_api_key: str = ""
     model_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    model_name: str = "glm-5"
+    model_name: str = "deepseek-v4-pro"
     model_timeout: float = 30.0
 
-    rag_embedding_model: str = "text-embedding-v3"
+    rag_embedding_model: str = "tongyi-embedding-vision-plus-2026-03-06"
     rag_embedding_timeout: float = 30.0
     rag_index_name: str = "inventory:rag:index"
     rag_key_prefix: str = "inventory:rag:chunk:"

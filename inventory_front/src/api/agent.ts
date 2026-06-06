@@ -13,6 +13,34 @@ export interface WorkflowAgentResponse {
   data?: Record<string, unknown> | null
 }
 
+export interface AgentSession {
+  id?: number
+  sessionNo?: string
+  threadId?: string
+  userId?: number
+  title?: string
+  agentType?: string
+  currentIntent?: string
+  status?: string
+  lastMessageTime?: string
+  createTime?: string
+}
+
+export interface AgentMessage {
+  id?: number
+  sessionId?: number
+  threadId?: string
+  messageRole?: string
+  messageType?: string
+  content?: string
+  createTime?: string
+}
+
+export interface AgentSessionDetail {
+  session?: AgentSession
+  messages?: AgentMessage[]
+}
+
 export interface WarningScanRequest {
   days?: number
   threadId?: string
@@ -59,6 +87,20 @@ export function workflowExecuteApi(data: WorkflowAgentRequest) {
     url: '/agent/workflow/execute',
     method: 'post',
     data,
+  })
+}
+
+export function agentSessionHistoryApi() {
+  return request<AgentSession[]>({
+    url: '/agent/session/history',
+    method: 'get',
+  })
+}
+
+export function agentSessionDetailApi(threadId: string) {
+  return request<AgentSessionDetail>({
+    url: `/agent/session/history/${threadId}`,
+    method: 'get',
   })
 }
 

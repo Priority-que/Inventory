@@ -200,12 +200,26 @@ public class ArrivalServiceImpl implements ArrivalService {
             }
         }
 
-        if (!"PARTIAL_ARRIVAL".equals(purchaseOrder.getStatus())
-                && purchaseOrderMapper.updateStatusById(purchaseOrder.getId(), "PARTIAL_ARRIVAL") <= 0) {
+        String nextOrderStatus = resolveArrivalOrderStatus(purchaseOrder.getId());
+        if (purchaseOrderMapper.updateStatusById(purchaseOrder.getId(), nextOrderStatus) <= 0) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return Result.error("回写采购订单状态失败");
         }
         return Result.success("新增到货单成功");
+    }
+
+    private String resolveArrivalOrderStatus(Long orderId) {
+        List<PurchaseOrderItemVO> orderItems = purchaseOrderItemMapper.getPurchaseOrderItemByOrderId(orderId);
+        if (orderItems == null || orderItems.isEmpty()) {
+            return "PARTIAL_ARRIVAL";
+        }
+        for (PurchaseOrderItemVO orderItem : orderItems) {
+            BigDecimal arrivedNumber = orderItem.getArrivedNumber() == null ? BigDecimal.ZERO : orderItem.getArrivedNumber();
+            if (arrivedNumber.compareTo(orderItem.getOrderNumber()) < 0) {
+                return "PARTIAL_ARRIVAL";
+            }
+        }
+        return "WAIT_INBOUND";
     }
 
     private String generateArrivalNo(Long orderId) {

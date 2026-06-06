@@ -12,6 +12,7 @@ import com.xixi.agent.mapper.AgentSessionMapper;
 import com.xixi.agent.mapper.AgentSessionStateMapper;
 import com.xixi.agent.service.AgentSessionService;
 import com.xixi.agent.vo.AgentMessageVO;
+import com.xixi.agent.vo.AgentSessionDetailVO;
 import com.xixi.agent.vo.AgentSessionVO;
 import com.xixi.agent.vo.OrderDiagnosisVO;
 import com.xixi.agent.vo.SupplierScoreVO;
@@ -148,6 +149,20 @@ public class AgentSessionServiceImpl implements AgentSessionService {
             throw new AccessDeniedException("无权访问该会话");
         }
         return agentMessageMapper.getMessagesByThreadId(threadId);
+    }
+
+    @Override
+    public AgentSessionDetailVO getSessionDetail(String threadId, Long userId) {
+        requireLogin(userId);
+        AgentSessionVO session = agentSessionMapper.getSessionVOByThreadIdAndUserId(threadId, userId);
+        if (session == null) {
+            throw new AccessDeniedException("无权访问该会话");
+        }
+
+        AgentSessionDetailVO detail = new AgentSessionDetailVO();
+        detail.setSession(session);
+        detail.setMessages(agentMessageMapper.getMessagesByThreadId(threadId));
+        return detail;
     }
 
     @Override

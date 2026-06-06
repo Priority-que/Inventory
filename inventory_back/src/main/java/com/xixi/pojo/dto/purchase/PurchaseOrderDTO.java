@@ -46,7 +46,7 @@ public class PurchaseOrderDTO implements Serializable {
     @Schema(description = "总金额")
     private BigDecimal totalAmount;
 
-    @Schema(description = "采购订单状态，WAIT_CONFIRM待供应商确认，IN_PROGRESS履约中，PARTIAL_ARRIVAL部分到货，COMPLETED已完成，CLOSED已关闭，CANCELLED已取消")
+    @Schema(description = "采购订单状态，WAIT_CONFIRM待供应商确认，IN_PROGRESS履约中，PARTIAL_ARRIVAL部分到货，WAIT_INBOUND待入库，COMPLETED已完成，CLOSED已关闭，CANCELLED已取消")
     private String status;
 
     @Schema(description = "供应商备注")

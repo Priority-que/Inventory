@@ -9,7 +9,6 @@ from pymysql.cursors import DictCursor
 from app.core.config import get_settings
 from app.core.exceptions import ApiException
 from app.schemas.workflow import WorkflowAgentResponse
-from app.workflows.state import WorkflowStateKeys
 
 
 class SessionStore:
@@ -121,6 +120,7 @@ class SessionStore:
                     if row is not None:
                         if int(row["user_id"]) != int(user_id):
                             raise ApiException(code=403, msg="无权访问该会话", http_status_code=403)
+                        row["_is_new_session"] = False
                         return row
 
                 now = self._now()
@@ -149,7 +149,10 @@ class SessionStore:
                     "select * from agent_session where thread_id = %s and deleted = 0",
                     (real_thread_id,),
                 )
-                return cur.fetchone()
+                row = cur.fetchone()
+                if row is not None:
+                    row["_is_new_session"] = True
+                return row
 
     def save_user_message(self, session: dict[str, Any], content: str | None) -> None:
         self._save_message(session, "USER", "TEXT", content=content)
@@ -241,21 +244,15 @@ class SessionStore:
 
         restored: dict[str, Any] = {}
         restorable_keys = [
-            WorkflowStateKeys.INTENT,
-            WorkflowStateKeys.ACTIVE_INTENT,
-            WorkflowStateKeys.ENTITY,
-            WorkflowStateKeys.CONVERSATION_MEMORY,
-            WorkflowStateKeys.ORDER_CONTEXT,
-            WorkflowStateKeys.ORDER_SNAPSHOT,
-            WorkflowStateKeys.ORDER_DIAGNOSIS,
-            WorkflowStateKeys.WARNING_CONTEXT,
-            WorkflowStateKeys.WARNING_ANALYSIS,
-            WorkflowStateKeys.SUPPLIER_CONTEXT,
-            WorkflowStateKeys.SUPPLIER_METRICS,
-            WorkflowStateKeys.SUPPLIER_SCORE,
-            WorkflowStateKeys.ANSWER_PLAN,
-            WorkflowStateKeys.SELECTED_CONTEXT,
-            WorkflowStateKeys.ANSWER_CARD,
+            "conversationMemory",
+            "agentVersion",
+            "lastUserMessage",
+            "businessMemory",
+            "conversationSummary",
+            "lastUnderstanding",
+            "lastPlan",
+            "lastEvidence",
+            "lastFactCheck",
         ]
 
         for key in restorable_keys:
@@ -357,6 +354,56 @@ class SessionStore:
                     (thread_id,),
                 )
                 return cur.fetchall()
+
+    def get_first_user_message(self, thread_id: str, user_id: int) -> str | None:
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select id from agent_session
+                    where thread_id = %s and user_id = %s and deleted = 0
+                    """,
+                    (thread_id, user_id),
+                )
+                session = cur.fetchone()
+                if session is None:
+                    raise ApiException(code=403, msg="无权访问该会话", http_status_code=403)
+
+                cur.execute(
+                    """
+                    select content
+                    from agent_message
+                    where thread_id = %s
+                      and message_role = 'USER'
+                      and deleted = 0
+                      and content is not null
+                    order by create_time asc, id asc
+                    limit 1
+                    """,
+                    (thread_id,),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return row.get("content")
+
+    def update_session_title(self, thread_id: str, user_id: int, title: str) -> None:
+        clean_title = (title or "").strip()
+        if not clean_title:
+            return
+
+        with self._conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    update agent_session
+                    set title = %s, update_time = %s
+                    where thread_id = %s
+                      and user_id = %s
+                      and deleted = 0
+                    """,
+                    (clean_title[:128], self._now(), thread_id, user_id),
+                )
 
     def _save_message(
         self,

@@ -5,6 +5,7 @@
     <select id="getWarehousePage" resultType="com.xixi.pojo.vo.warehouse.WarehousePageVO">
         select * from warehouse
         <where>
+            deleted = 0
             <if test="q.code != null and q.code != ''">
                 and code like concat('%',#{q.code},'%')
             </if>

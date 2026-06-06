@@ -106,6 +106,19 @@ function canApproveRow(row: PurchaseRequestPageVO) {
   return row.status === 'PENDING_APPROVAL'
 }
 
+function formatUserWithId(name?: string | null, id?: number | null) {
+  if (name && id) {
+    return `${name} (ID: ${id})`
+  }
+  if (name) {
+    return name
+  }
+  if (id) {
+    return `ID: ${id}`
+  }
+  return '-'
+}
+
 function resetActionForm() {
   Object.assign(actionForm, {
     id: undefined,
@@ -250,8 +263,9 @@ onMounted(loadData)
           <el-table-column prop="id" label="ID" width="88" fixed="left" />
           <el-table-column prop="requestNo" label="申请单号" min-width="168" show-overflow-tooltip />
           <el-table-column prop="title" label="标题" min-width="188" show-overflow-tooltip />
-          <el-table-column prop="applicantId" label="申请人 ID" width="110" />
-          <el-table-column prop="applicantName" label="申请人" min-width="120" show-overflow-tooltip />
+          <el-table-column label="申请人" min-width="140" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatUserWithId(row.applicantName, row.applicantId) }}</template>
+          </el-table-column>
           <el-table-column prop="dept" label="申请部门" min-width="120" show-overflow-tooltip />
           <el-table-column label="期望到货日期" min-width="128">
             <template #default="{ row }">{{ formatDate(row.expectedDate) }}</template>
@@ -259,8 +273,9 @@ onMounted(loadData)
           <el-table-column label="提交时间" min-width="168">
             <template #default="{ row }">{{ formatDateTime(row.submitTime) }}</template>
           </el-table-column>
-          <el-table-column prop="reviewUserId" label="审批人 ID" width="110" />
-          <el-table-column prop="reviewUserName" label="审批人" min-width="120" show-overflow-tooltip />
+          <el-table-column label="审批人" min-width="140" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatUserWithId(row.reviewUserName, row.reviewUserId) }}</template>
+          </el-table-column>
           <el-table-column label="审批时间" min-width="168">
             <template #default="{ row }">{{ formatDateTime(row.reviewTime) }}</template>
           </el-table-column>
@@ -347,11 +362,15 @@ onMounted(loadData)
                 <el-descriptions-item label="ID">{{ detail.id }}</el-descriptions-item>
                 <el-descriptions-item label="申请单号">{{ formatEmpty(detail.requestNo) }}</el-descriptions-item>
                 <el-descriptions-item label="标题">{{ formatEmpty(detail.title) }}</el-descriptions-item>
-                <el-descriptions-item label="申请人 ID">{{ formatEmpty(detail.applicantId) }}</el-descriptions-item>
+                <el-descriptions-item label="申请人">
+                  {{ formatUserWithId(detail.applicantName, detail.applicantId) }}
+                </el-descriptions-item>
                 <el-descriptions-item label="申请部门">{{ formatEmpty(detail.dept) }}</el-descriptions-item>
                 <el-descriptions-item label="期望到货日期">{{ formatDate(detail.expectedDate) }}</el-descriptions-item>
                 <el-descriptions-item label="提交时间">{{ formatDateTime(detail.submitTime) }}</el-descriptions-item>
-                <el-descriptions-item label="审批人 ID">{{ formatEmpty(detail.reviewUserId) }}</el-descriptions-item>
+                <el-descriptions-item label="审批人">
+                  {{ formatUserWithId(detail.reviewUserName, detail.reviewUserId) }}
+                </el-descriptions-item>
                 <el-descriptions-item label="审批时间">{{ formatDateTime(detail.reviewTime) }}</el-descriptions-item>
                 <el-descriptions-item label="审批意见">{{ formatEmpty(detail.reviewNote) }}</el-descriptions-item>
                 <el-descriptions-item label="状态">
