@@ -1,10 +1,29 @@
 <script setup lang="ts">
-const stats = [
-  { label: '待处理采购', value: 0 },
-  { label: '待确认到货', value: 0 },
-  { label: '库存预警', value: 0 },
-  { label: '活跃供应商', value: 0 },
-]
+import { computed, onMounted, ref } from 'vue'
+import { getStatisticsSummaryApi, type StatisticsSummaryVO } from '@/api/statistics'
+
+const loading = ref(false)
+const summary = ref<StatisticsSummaryVO | null>(null)
+
+const stats = computed(() => [
+  { label: '待审批采购申请', value: summary.value?.pendingApprovalRequestCount },
+  { label: '待供应商确认订单', value: summary.value?.waitConfirmOrderCount },
+  { label: '执行中订单', value: summary.value?.inProgressOrderCount },
+  { label: '待入库到货单', value: summary.value?.pendingInboundArrivalCount },
+  { label: '库存预警', value: summary.value?.inventoryAlertCount },
+  { label: '异常到货', value: summary.value?.abnormalArrivalCount },
+])
+
+async function loadSummary() {
+  loading.value = true
+  try {
+    summary.value = await getStatisticsSummaryApi()
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadSummary)
 </script>
 
 <template>
@@ -16,9 +35,9 @@ const stats = [
       </div>
     </div>
 
-    <div class="stats-grid">
+    <div v-loading="loading" class="stats-grid">
       <el-card v-for="item in stats" :key="item.label" shadow="never">
-        <div class="stat-value">{{ item.value }}</div>
+        <div class="stat-value">{{ item.value ?? '--' }}</div>
         <div class="stat-label">{{ item.label }}</div>
       </el-card>
     </div>
@@ -37,6 +56,7 @@ const stats = [
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+  min-height: 266px;
 }
 
 .stat-value {

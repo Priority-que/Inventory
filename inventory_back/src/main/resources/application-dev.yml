@@ -26,6 +26,7 @@ spring:
           model: text-embedding-v3
     vectorstore:
       redis:
+        enabled: false
         index-name: "ikun-rag-index:"
         prefix: "ikun-rag-prefix:"
         initialize-schema: true
