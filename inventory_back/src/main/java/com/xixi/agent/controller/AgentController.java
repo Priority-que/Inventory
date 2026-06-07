@@ -12,8 +12,10 @@ import com.xixi.agent.service.PythonWorkflowProxyService;
 import com.xixi.agent.service.ProcurementWarningAgentService;
 import com.xixi.agent.service.SupplierPerformanceAgentService;
 import com.xixi.pojo.vo.Result;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.web.bind.annotation.*;
@@ -63,6 +65,15 @@ public class AgentController {
                                           @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
                                           String authorization) {
         return pythonWorkflowProxyService.executeWorkflow(request, authorization);
+    }
+
+    @Operation(summary = "流式执行工作流代理", operationId = "stream")
+    @PostMapping(value = "/workflow/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public void stream(@RequestBody WorkflowAgentRequest request,
+                       @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
+                       String authorization,
+                       HttpServletResponse response) {
+        pythonWorkflowProxyService.streamWorkflow(request, authorization, response);
     }
 }
 

@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     model_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     model_name: str = "deepseek-v4-pro"
     model_timeout: float = 30.0
+    model_enable_thinking: bool = True
+    model_reasoning_effort: str = "high"
 
     rag_embedding_model: str = "tongyi-embedding-vision-plus-2026-03-06"
     rag_embedding_timeout: float = 30.0

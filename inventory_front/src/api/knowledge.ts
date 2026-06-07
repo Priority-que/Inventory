@@ -43,6 +43,14 @@ export function importRagKnowledgeApi(data: RagKnowledgeImportRequest) {
   })
 }
 
+export function uploadRagKnowledgeApi(data: FormData) {
+  return request<RagImportResultVO>({
+    url: '/agent/rag/upload',
+    method: 'post',
+    data,
+  })
+}
+
 export function searchRagKnowledgeApi(data: RagSearchRequest) {
   return request<RagSearchResultVO[]>({
     url: '/agent/rag/search',

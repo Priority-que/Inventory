@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import DOMPurify from 'dompurify'
+import { marked } from 'marked'
 import {
   agentSessionDetailApi,
   agentSessionHistoryApi,
-  workflowExecuteApi,
+  workflowStreamApi,
   type AgentMessage,
   type AgentSession,
   type WorkflowAgentResponse,
@@ -22,6 +24,10 @@ interface ChatMessage {
   intent?: string
   data?: Record<string, unknown> | null
   pending?: boolean
+  streaming?: boolean
+  thinkingContent?: string
+  thinkingStatus?: string
+  answerStarted?: boolean
 }
 
 interface WarningItem {
@@ -45,6 +51,12 @@ const sessionId = ref<number>()
 const messages = ref<ChatMessage[]>([])
 const sessionList = ref<AgentSession[]>([])
 const scrollRef = ref<HTMLElement>()
+const activeStreamController = ref<AbortController | null>(null)
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+})
 
 const allQuickActions = [
   {
@@ -83,7 +95,7 @@ const pageDesc = computed(() => {
     return '复用统一 Workflow Agent，对供应商履约进行评分并返回指标拆解和合作建议。'
   }
 
-  return '通过对话完成风险扫描、订单诊断、供应商评分和业务知识问答'
+  return '可以自然聊天，也可以处理库存、采购、供应商和业务规则相关问题'
 })
 
 const quickActions = computed(() => {
@@ -152,8 +164,44 @@ function asRecord(value: unknown) {
   return null
 }
 
-function getString(data: unknown, key: string) {
+function getBusinessRecord(data: unknown) {
   const record = asRecord(data)
+  if (!record) {
+    return null
+  }
+
+  const evidence = asRecord(record.evidence)
+  if (!evidence) {
+    return record
+  }
+
+  const facts = asRecord(evidence.facts) || {}
+  const result: Record<string, unknown> = {
+    ...record,
+    ...facts,
+  }
+
+  if (typeof evidence.summary === 'string') {
+    result.summary = evidence.summary
+  }
+
+  if (Array.isArray(evidence.items)) {
+    result.items = evidence.items
+  }
+
+  if (Array.isArray(evidence.sourceTools)) {
+    result.sourceTools = evidence.sourceTools
+  }
+
+  if (Array.isArray(evidence.errors)) {
+    result.errors = evidence.errors
+  }
+
+  return result
+}
+
+function getString(data: unknown, key: string) {
+  const record = getBusinessRecord(data)
   const value = record?.[key]
 
   if (typeof value === 'string' || typeof value === 'number') {
@@ -164,7 +212,7 @@ function getString(data: unknown, key: string) {
 }
 
 function getNumber(data: unknown, key: string) {
-  const record = asRecord(data)
+  const record = getBusinessRecord(data)
   const value = record?.[key]
 
   if (typeof value === 'number') {
@@ -179,7 +227,7 @@ function getNumber(data: unknown, key: string) {
 }
 
 function getEvidence(data: unknown) {
-  const record = asRecord(data)
+  const record = getBusinessRecord(data)
   const evidence = record?.evidence
 
   if (Array.isArray(evidence)) {
@@ -190,7 +238,7 @@ function getEvidence(data: unknown) {
 }
 
 function getWarningItems(data: unknown) {
-  const record = asRecord(data)
+  const record = getBusinessRecord(data)
   const items = Array.isArray(record?.items) ? record?.items : record?.topItems
 
   if (!Array.isArray(items)) {
@@ -201,14 +249,14 @@ function getWarningItems(data: unknown) {
 }
 
 function getNextActionText(data: unknown) {
-  const record = asRecord(data)
+  const record = getBusinessRecord(data)
   const nextAction = asRecord(record?.nextAction)
 
   return getString(nextAction, 'actionText') || getString(record, 'suggestAction') || getString(record, 'nextAction')
 }
 
 function getResponsibilityText(data: unknown) {
-  const record = asRecord(data)
+  const record = getBusinessRecord(data)
   const responsibility = asRecord(record?.responsibility)
 
   return getString(responsibility, 'ownerRoleName') || getString(record, 'suggestOwner')
@@ -262,6 +310,24 @@ function levelTagType(level?: string) {
   return 'info'
 }
 
+function streamThinkingStatus(payload: unknown) {
+  const stage = getString(payload, 'stage')
+  const stageMap: Record<string, string> = {
+    AUTH: '开始思考',
+    UNDERSTAND: '正在理解你的意思',
+    PLAN: '正在判断回答方式',
+    EVIDENCE: '正在结合上下文',
+    ANSWER: '正在组织回答',
+  }
+
+  return stageMap[stage] || '思考中'
+}
+
+function renderMarkdown(content: string) {
+  const html = marked.parse(content || '', { async: false })
+  return DOMPurify.sanitize(String(html))
+}
+
 async function scrollToBottom() {
   await nextTick()
   if (scrollRef.value) {
@@ -271,6 +337,9 @@ async function scrollToBottom() {
 
 function applyWorkflowResponse(message: ChatMessage, result: WorkflowAgentResponse) {
   message.pending = false
+  message.streaming = false
+  message.thinkingStatus = '回答完成'
+  message.answerStarted = true
   message.content = result.answer || '已完成处理。'
   message.intent = result.intent
   message.data = result.data || null
@@ -293,11 +362,50 @@ async function loadSessions() {
   }
 }
 
+function refreshSessionsLater(delay = 1800) {
+  window.setTimeout(() => {
+    loadSessions().catch(() => undefined)
+  }, delay)
+}
+
+function markStreamingMessagesInterrupted() {
+  messages.value = messages.value.map((message) => {
+    if (message.role !== 'assistant' || !message.streaming) {
+      return message
+    }
+
+    return {
+      ...message,
+      pending: false,
+      streaming: false,
+      answerStarted: true,
+      thinkingStatus: '已中断',
+      content: message.content || '本次处理已中断。',
+    }
+  })
+}
+
+function abortActiveStream() {
+  if (!activeStreamController.value) {
+    return
+  }
+
+  activeStreamController.value.abort()
+  activeStreamController.value = null
+  sending.value = false
+  markStreamingMessagesInterrupted()
+}
+
+function isAbortError(error: unknown) {
+  return typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
+}
+
 async function openSession(session: AgentSession) {
   if (!session.threadId || detailLoading.value) {
     return
   }
 
+  abortActiveStream()
   detailLoading.value = true
   try {
     const detail = await agentSessionDetailApi(session.threadId)
@@ -331,31 +439,184 @@ async function sendMessage(content = messageInput.value) {
   const assistantMessage: ChatMessage = {
     id: createMessageId(),
     role: 'assistant',
-    content: '正在分析业务数据...',
+    content: '',
     createdAt: createTimeText(),
     pending: true,
+    streaming: true,
+    thinkingContent: '',
+    thinkingStatus: '连接中',
+    answerStarted: false,
   }
 
   messages.value.push(assistantMessage)
+  const assistantMessageId = assistantMessage.id
+  const requestThreadId = threadId.value || undefined
+  const streamController = new AbortController()
+  activeStreamController.value = streamController
   sending.value = true
   await scrollToBottom()
 
-  try {
-    const result = await workflowExecuteApi({
-      message: text,
-      threadId: threadId.value || undefined,
-    })
-    applyWorkflowResponse(assistantMessage, result)
-    try {
-      await loadSessions()
-    } catch {
-      ElMessage.warning('会话列表刷新失败，请稍后手动刷新')
+  const findAssistantMessageIndex = () => messages.value.findIndex((message) => message.id === assistantMessageId)
+
+  const updateAssistantMessage = (patch: Partial<ChatMessage>) => {
+    const assistantMessageIndex = findAssistantMessageIndex()
+    const current = messages.value[assistantMessageIndex]
+    if (!current) {
+      return
     }
-  } catch {
-    assistantMessage.pending = false
-    assistantMessage.content = '本次处理失败，请稍后重试。'
+
+    messages.value[assistantMessageIndex] = {
+      ...current,
+      ...patch,
+    }
+  }
+
+  const appendThinkingToken = (text: string) => {
+    const assistantMessageIndex = findAssistantMessageIndex()
+    const current = messages.value[assistantMessageIndex]
+    if (!current || !text) {
+      return
+    }
+
+    messages.value[assistantMessageIndex] = {
+      ...current,
+      pending: false,
+      thinkingContent: `${current.thinkingContent || ''}${text}`,
+      thinkingStatus: '思考中',
+    }
+  }
+
+  const appendAnswerToken = (text: string) => {
+    const assistantMessageIndex = findAssistantMessageIndex()
+    const current = messages.value[assistantMessageIndex]
+    if (!current || !text) {
+      return
+    }
+
+    messages.value[assistantMessageIndex] = {
+      ...current,
+      pending: false,
+      answerStarted: true,
+      content: `${current.content || ''}${text}`,
+      thinkingStatus: current.thinkingContent ? '正在回答' : current.thinkingStatus || '正在回答',
+    }
+  }
+
+  try {
+    let hasAnswerToken = false
+    let streamFailed = false
+    let streamFinished = false
+
+    await workflowStreamApi(
+      {
+        message: text,
+        threadId: requestThreadId,
+      },
+      {
+        onStart() {
+          if (!hasAnswerToken) {
+            updateAssistantMessage({
+              pending: false,
+              thinkingStatus: '开始思考',
+            })
+            scrollToBottom()
+          }
+        },
+        onStep(payload) {
+          if (!hasAnswerToken) {
+            updateAssistantMessage({
+              pending: false,
+              thinkingStatus: streamThinkingStatus(payload),
+            })
+            scrollToBottom()
+          }
+        },
+        onThinking(text) {
+          appendThinkingToken(text)
+          scrollToBottom()
+        },
+        onToken(text) {
+          if (!text) {
+            return
+          }
+
+          if (!hasAnswerToken) {
+            hasAnswerToken = true
+            updateAssistantMessage({
+              pending: false,
+              answerStarted: true,
+              thinkingStatus: '正在回答',
+            })
+          }
+
+          appendAnswerToken(text)
+          scrollToBottom()
+        },
+        onDone(result) {
+          streamFinished = true
+          const assistantMessageIndex = findAssistantMessageIndex()
+          const current = messages.value[assistantMessageIndex]
+          if (current) {
+            const nextMessage = { ...current }
+            applyWorkflowResponse(nextMessage, result)
+            messages.value[assistantMessageIndex] = nextMessage
+          }
+          scrollToBottom()
+        },
+        onError(message) {
+          streamFinished = true
+          streamFailed = true
+          updateAssistantMessage({
+            pending: false,
+            streaming: false,
+            answerStarted: true,
+            thinkingStatus: '思考中断',
+            content: message || '本次处理失败，请稍后重试。',
+          })
+          scrollToBottom()
+        },
+      },
+      {
+        signal: streamController.signal,
+      },
+    )
+
+    if (!streamFinished) {
+      streamFailed = true
+      updateAssistantMessage({
+        pending: false,
+        streaming: false,
+        answerStarted: true,
+        thinkingStatus: '连接中断',
+        content: '流式连接中断，请稍后重试。',
+      })
+    }
+
+    if (!streamFailed) {
+      try {
+        await loadSessions()
+        refreshSessionsLater()
+      } catch {
+        ElMessage.warning('会话列表刷新失败，请稍后手动刷新')
+      }
+    }
+  } catch (error) {
+    if (isAbortError(error)) {
+      return
+    }
+
+    updateAssistantMessage({
+      pending: false,
+      streaming: false,
+      answerStarted: true,
+      thinkingStatus: '处理失败',
+      content: '本次处理失败，请稍后重试。',
+    })
   } finally {
-    sending.value = false
+    if (activeStreamController.value === streamController) {
+      activeStreamController.value = null
+      sending.value = false
+    }
     scrollToBottom()
   }
 }
@@ -370,6 +631,7 @@ function handleEnter(event: KeyboardEvent) {
 }
 
 function startNewChat() {
+  abortActiveStream()
   messageInput.value = ''
   messages.value = []
   threadId.value = ''
@@ -388,73 +650,80 @@ async function copyAnswer(content: string) {
 onMounted(() => {
   loadSessions()
 })
+
+onBeforeUnmount(() => {
+  abortActiveStream()
+})
 </script>
 
 <template>
   <div class="agent-page">
-    <header class="page-header">
-      <div>
-        <h2 class="page-title">{{ pageTitle }}</h2>
-        <p class="page-desc">{{ pageDesc }}</p>
+    <aside class="session-sidebar">
+      <div class="session-brand">
+        <span class="brand-mark">
+          <el-icon><MagicStick /></el-icon>
+        </span>
+        <strong>{{ pageTitle }}</strong>
       </div>
-      <div class="header-actions">
-        <el-tag type="info" effect="plain">{{ currentThreadText }}</el-tag>
-        <el-button @click="startNewChat">
-          <el-icon><EditPen /></el-icon>
-          新建会话
-        </el-button>
+
+      <el-button class="new-chat-button" @click="startNewChat">
+        <el-icon><EditPen /></el-icon>
+        新建会话
+      </el-button>
+
+      <div class="session-sidebar-header">
+        <strong>最近</strong>
+        <el-button link size="small" :loading="sessionLoading" @click="loadSessions">刷新</el-button>
       </div>
-    </header>
 
-    <div class="agent-workspace">
-      <aside class="session-sidebar">
-        <div class="session-sidebar-header">
-          <strong>历史会话</strong>
-          <el-button link size="small" :loading="sessionLoading" @click="loadSessions">刷新</el-button>
+      <div v-loading="sessionLoading" class="session-list">
+        <button
+          v-for="session in sessionList"
+          :key="session.threadId || session.id"
+          class="session-item"
+          :class="{ 'is-active': session.threadId === threadId }"
+          type="button"
+          @click="openSession(session)"
+        >
+          <span class="session-title">{{ sessionTitle(session) }}</span>
+          <span class="session-meta">
+            <span>{{ intentLabel(session.currentIntent) }}</span>
+            <span>{{ sessionTime(session) }}</span>
+          </span>
+        </button>
+
+        <el-empty v-if="!sessionLoading && sessionList.length === 0" :image-size="64" description="暂无历史会话" />
+      </div>
+    </aside>
+
+    <section v-loading="detailLoading" class="chat-panel">
+      <header class="chat-topbar">
+        <div class="chat-title">
+          <span>{{ currentThreadText }}</span>
         </div>
+      </header>
 
-        <div v-loading="sessionLoading" class="session-list">
-          <button
-            v-for="session in sessionList"
-            :key="session.threadId || session.id"
-            class="session-item"
-            :class="{ 'is-active': session.threadId === threadId }"
-            type="button"
-            @click="openSession(session)"
-          >
-            <span class="session-title">{{ sessionTitle(session) }}</span>
-            <span class="session-meta">
-              <span>{{ intentLabel(session.currentIntent) }}</span>
-              <span>{{ sessionTime(session) }}</span>
-            </span>
-          </button>
-
-          <el-empty v-if="!sessionLoading && sessionList.length === 0" :image-size="72" description="暂无历史会话" />
-        </div>
-      </aside>
-
-      <section v-loading="detailLoading" class="chat-panel">
-        <main ref="scrollRef" class="chat-body" :class="{ 'is-empty': !hasMessages }">
-          <section v-if="!hasMessages" class="welcome-panel">
-            <div class="assistant-mark">
-              <el-icon><MagicStick /></el-icon>
-            </div>
-            <h3>你想分析什么？</h3>
-            <p>直接输入问题，或选择一个常用业务场景开始。</p>
-            <div class="quick-actions">
-              <el-button
-                v-for="item in quickActions"
-                :key="item.title"
-                class="quick-action"
-                @click="sendMessage(item.prompt)"
-              >
-                <el-icon>
-                  <component :is="item.icon" />
-                </el-icon>
-                <span>{{ item.title }}</span>
-              </el-button>
-            </div>
-          </section>
+      <main ref="scrollRef" class="chat-body" :class="{ 'is-empty': !hasMessages }">
+        <section v-if="!hasMessages" class="welcome-panel">
+          <div class="assistant-mark">
+            <el-icon><MagicStick /></el-icon>
+          </div>
+          <h3>今天想聊什么？</h3>
+          <p>{{ pageDesc }}</p>
+          <div class="quick-actions">
+            <el-button
+              v-for="item in quickActions"
+              :key="item.title"
+              class="quick-action"
+              @click="sendMessage(item.prompt)"
+            >
+              <el-icon>
+                <component :is="item.icon" />
+              </el-icon>
+              <span>{{ item.title }}</span>
+            </el-button>
+          </div>
+        </section>
 
         <section v-else class="message-list">
           <article
@@ -463,30 +732,38 @@ onMounted(() => {
             class="message-row"
             :class="`is-${message.role}`"
           >
-            <div v-if="message.role === 'assistant'" class="avatar assistant-avatar">
-              <el-icon><MagicStick /></el-icon>
-            </div>
-
             <div class="message-block">
-              <div class="message-meta">
-                <span>{{ message.role === 'user' ? '你' : '智能助手' }}</span>
-                <span>{{ message.createdAt }}</span>
-                <el-tag v-if="message.role === 'assistant' && message.intent" size="small" effect="plain">
-                  {{ intentLabel(message.intent) }}
-                </el-tag>
-              </div>
-
               <div class="message-bubble">
-                <div v-if="message.pending" class="typing">
-                  <span />
-                  <span />
-                  <span />
-                </div>
+                <template v-if="message.role === 'assistant'">
+                  <div v-if="message.pending" class="typing">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <template v-else>
+                    <div
+                      v-if="message.thinkingContent || (message.streaming && message.thinkingStatus)"
+                      class="thinking-panel"
+                      :class="{ 'is-thinking': message.streaming && !message.answerStarted, 'is-done': !message.streaming }"
+                    >
+                      <div class="thinking-title">
+                        <span class="thinking-pulse" />
+                        <span>{{ message.thinkingStatus || '思考中' }}</span>
+                      </div>
+                      <p v-if="message.thinkingContent" class="thinking-text">{{ message.thinkingContent }}</p>
+                    </div>
+                    <div
+                      v-if="message.content || message.answerStarted || !message.streaming"
+                      class="message-text assistant-answer markdown-body"
+                      v-html="renderMarkdown(message.content)"
+                    />
+                  </template>
+                </template>
                 <p v-else class="message-text">{{ message.content }}</p>
               </div>
 
               <div
-                v-if="message.role === 'assistant' && !message.pending && message.data"
+                v-if="message.role === 'assistant' && !message.pending && !message.streaming && message.data"
                 class="structured-result"
               >
                 <div v-if="message.intent === 'WARNING_SCAN'" class="result-card">
@@ -545,45 +822,44 @@ onMounted(() => {
                 </div>
               </div>
 
-              <div v-if="message.role === 'assistant' && !message.pending" class="message-actions">
-                <el-button link size="small" @click="copyAnswer(message.content)">
+              <div v-if="message.role === 'assistant' && !message.pending && !message.streaming" class="message-actions">
+                <el-button link size="small" title="复制回答" @click="copyAnswer(message.content)">
                   <el-icon><CopyDocument /></el-icon>
-                  复制
                 </el-button>
+                <span class="message-time">{{ message.createdAt }}</span>
+                <el-tag v-if="message.intent" size="small" effect="plain">
+                  {{ intentLabel(message.intent) }}
+                </el-tag>
               </div>
             </div>
-
-            <div v-if="message.role === 'user'" class="avatar user-avatar">我</div>
           </article>
         </section>
-        </main>
+      </main>
 
-        <footer class="composer-shell">
-          <div class="composer">
-            <el-input
-              v-model="messageInput"
-              :autosize="{ minRows: 2, maxRows: 6 }"
-              type="textarea"
-              resize="none"
-              placeholder="向智能助手提问，或输入“扫描最近7天采购风险”"
-              @keydown.enter="handleEnter"
-            />
-            <div class="composer-toolbar">
-              <span class="composer-tip">连续对话会复用当前会话标识；新建会话会重新开始业务上下文。</span>
-              <el-button
-                type="primary"
-                :loading="sending"
-                :disabled="detailLoading || !messageInput.trim()"
-                @click="sendMessage()"
-              >
-                <el-icon><Promotion /></el-icon>
-                发送
-              </el-button>
-            </div>
-          </div>
-        </footer>
-      </section>
-    </div>
+      <footer class="composer-shell">
+        <div class="composer">
+          <el-input
+            v-model="messageInput"
+            :autosize="{ minRows: 1, maxRows: 5 }"
+            type="textarea"
+            resize="none"
+            placeholder="有问题，尽管问"
+            @keydown.enter="handleEnter"
+          />
+          <el-button
+            class="send-button"
+            type="primary"
+            :loading="sending"
+            :disabled="detailLoading || !messageInput.trim()"
+            circle
+            @click="sendMessage()"
+          >
+            <el-icon><Promotion /></el-icon>
+          </el-button>
+        </div>
+        <p class="composer-tip">AI 助手可能会犯错，请核查重要信息。</p>
+      </footer>
+    </section>
   </div>
 </template>
 
@@ -881,6 +1157,51 @@ onMounted(() => {
   white-space: pre-wrap;
 }
 
+.assistant-answer {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.85;
+}
+
+.thinking-panel {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  color: #6b7280;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.thinking-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.thinking-text {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.thinking-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.thinking-panel.is-thinking .thinking-pulse {
+  background: var(--primary-color);
+  animation: thinking-pulse 1.2s infinite ease-in-out;
+}
+
 .typing {
   display: inline-flex;
   align-items: center;
@@ -1009,6 +1330,19 @@ onMounted(() => {
   }
 }
 
+@keyframes thinking-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
 @media (max-width: 920px) {
   .header-actions {
     width: 100%;
@@ -1050,6 +1384,678 @@ onMounted(() => {
 
   .message-block {
     max-width: calc(100% - 46px);
+  }
+}
+
+/* GPT-like assistant surface */
+.agent-page {
+  height: 100vh;
+  min-height: 620px;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 0;
+  margin: -28px -32px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.session-sidebar {
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  flex: initial;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f7f7f7;
+  border: 0;
+  border-right: 1px solid #ececec;
+  border-radius: 0;
+}
+
+.session-brand {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  color: #111111;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #111111;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.new-chat-button.el-button {
+  height: 42px;
+  justify-content: flex-start;
+  gap: 10px;
+  margin: 4px 12px 14px;
+  padding: 0 12px;
+  color: #222222;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.new-chat-button.el-button:hover,
+.new-chat-button.el-button:focus {
+  color: #111111;
+  background: #ededed;
+}
+
+.new-chat-button.el-button :deep(> span) {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.session-sidebar-header {
+  height: auto;
+  padding: 8px 16px 6px;
+  border-bottom: 0;
+}
+
+.session-sidebar-header strong {
+  color: #4f4f4f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.session-sidebar-header .el-button {
+  color: #6f6f6f;
+}
+
+.session-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 14px;
+}
+
+.session-list :deep(.el-loading-mask) {
+  background: rgba(247, 247, 247, 0.75);
+}
+
+.session-item {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  margin: 1px 0;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+}
+
+.session-item:hover,
+.session-item:focus {
+  background: #eeeeee;
+}
+
+.session-item.is-active {
+  background: #e9e9e9;
+}
+
+.session-title {
+  max-width: 100%;
+  overflow: hidden;
+  color: #1f1f1f;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-meta {
+  display: none;
+}
+
+.chat-panel {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+}
+
+.chat-topbar {
+  height: 58px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 28px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.chat-title {
+  min-width: 0;
+  color: #202123;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chat-title span {
+  display: block;
+  max-width: min(520px, 54vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 34px 24px 30px;
+  background: #ffffff;
+}
+
+.chat-body.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome-panel {
+  width: min(760px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.assistant-mark {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: #111111;
+  border: 0;
+  border-radius: 12px;
+  font-size: 22px;
+}
+
+.welcome-panel h3 {
+  margin: 18px 0 8px;
+  color: #111111;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.welcome-panel p {
+  max-width: 520px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.quick-actions {
+  width: min(680px, 100%);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.quick-action.el-button {
+  height: 46px;
+  min-height: 46px;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-left: 0;
+  padding: 0 14px;
+  color: #303030;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.quick-action.el-button + .quick-action.el-button {
+  margin-left: 0;
+}
+
+.quick-action.el-button :deep(> span) {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.quick-action.el-button:hover,
+.quick-action.el-button:focus {
+  color: #111111;
+  border-color: #d4d4d4;
+  background: #f7f7f7;
+}
+
+.quick-action .el-icon {
+  color: #6b7280;
+  font-size: 17px;
+}
+
+.message-list {
+  width: min(840px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin: 0 auto;
+}
+
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.message-row.is-user {
+  justify-content: flex-end;
+}
+
+.message-row.is-assistant {
+  justify-content: flex-start;
+}
+
+.message-block {
+  max-width: min(760px, 100%);
+}
+
+.message-row.is-user .message-block {
+  max-width: min(560px, 78%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.message-bubble {
+  padding: 0;
+  color: #111111;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.message-row.is-user .message-bubble {
+  padding: 10px 16px;
+  color: #111111;
+  background: #ffe8f2;
+  border: 0;
+  border-radius: 22px;
+}
+
+.message-text {
+  margin: 0;
+  color: #111111;
+  font-size: 16px;
+  line-height: 1.85;
+  white-space: pre-wrap;
+}
+
+.assistant-answer {
+  color: #111111;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.9;
+  letter-spacing: 0;
+}
+
+.markdown-body :deep(p) {
+  margin: 0 0 14px;
+}
+
+.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-body :deep(strong) {
+  font-weight: 700;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 10px 0 14px;
+  padding-left: 24px;
+}
+
+.markdown-body :deep(li) {
+  margin: 4px 0;
+}
+
+.markdown-body :deep(code) {
+  padding: 2px 5px;
+  color: #111827;
+  background: #f3f4f6;
+  border-radius: 5px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.markdown-body :deep(pre) {
+  margin: 12px 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  color: #111827;
+  background: #f7f7f8;
+  border: 1px solid #eeeeee;
+  border-radius: 10px;
+}
+
+.markdown-body :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 12px 0;
+  padding-left: 14px;
+  color: #4b5563;
+  border-left: 3px solid #d1d5db;
+}
+
+.thinking-panel {
+  margin: 0 0 14px;
+  padding: 0 0 13px;
+  color: #8b8b8b;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.thinking-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #8b8b8b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.thinking-text {
+  max-height: 180px;
+  margin: 8px 0 0;
+  overflow-y: auto;
+  color: #777777;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.thinking-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b6b6b6;
+}
+
+.thinking-panel.is-thinking .thinking-pulse {
+  background: #111111;
+  animation: thinking-pulse 1.2s infinite ease-in-out;
+}
+
+.thinking-panel.is-done .thinking-pulse {
+  display: none;
+}
+
+.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+}
+
+.typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #777777;
+  animation: typing 1.1s infinite ease-in-out;
+}
+
+.structured-result {
+  width: min(760px, 100%);
+  margin-top: 14px;
+}
+
+.result-card {
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+}
+
+.result-card-header strong {
+  color: #111111;
+  font-size: 14px;
+}
+
+.result-card-header span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.evidence-list {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: #4b5563;
+  line-height: 1.8;
+}
+
+.message-actions {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  color: #8b8b8b;
+}
+
+.message-actions .el-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: #6f6f6f;
+  border-radius: 8px;
+}
+
+.message-actions .el-button:hover,
+.message-actions .el-button:focus {
+  color: #111111;
+  background: #f1f1f1;
+}
+
+.message-time {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.composer-shell {
+  flex: 0 0 auto;
+  padding: 18px 24px 34px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #ffffff 28%);
+  border-top: 0;
+}
+
+.composer {
+  width: min(780px, 100%);
+  min-height: 56px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 0 auto;
+  padding: 8px 8px 8px 12px;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
+  border-radius: 28px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 12px 34px rgba(0, 0, 0, 0.08);
+}
+
+.composer:focus-within {
+  border-color: #c8c8c8;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 14px 38px rgba(0, 0, 0, 0.1);
+}
+
+.send-button.el-button {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  margin-bottom: 2px;
+  border-radius: 50%;
+}
+
+.send-button.el-button {
+  color: #ffffff;
+  background: #111111;
+  border-color: #111111;
+}
+
+.send-button.el-button:hover,
+.send-button.el-button:focus {
+  background: #000000;
+  border-color: #000000;
+}
+
+.send-button.el-button.is-disabled,
+.send-button.el-button.is-loading {
+  color: #ffffff;
+  background: #d1d5db;
+  border-color: #d1d5db;
+}
+
+.composer :deep(.el-textarea) {
+  flex: 1;
+  min-width: 0;
+}
+
+.composer :deep(.el-textarea__inner) {
+  min-height: 40px !important;
+  padding: 6px 0 4px;
+  color: #111111;
+  border: 0;
+  box-shadow: none;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.composer :deep(.el-textarea__inner::placeholder) {
+  color: #9ca3af;
+}
+
+.composer-toolbar {
+  display: none;
+}
+
+.composer-tip {
+  width: min(780px, 100%);
+  margin: 8px auto 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .agent-page {
+    height: 100vh;
+    grid-template-columns: 248px minmax(0, 1fr);
+    margin: -24px;
+  }
+
+  .chat-topbar {
+    padding: 0 18px;
+  }
+
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .agent-page {
+    height: 100vh;
+    min-height: 720px;
+    grid-template-columns: 1fr;
+    grid-template-rows: 210px minmax(620px, 1fr);
+    margin: -18px;
+  }
+
+  .session-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid #ececec;
+  }
+
+  .session-brand {
+    min-height: 48px;
+  }
+
+  .new-chat-button.el-button {
+    margin-bottom: 8px;
+  }
+
+  .session-list {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 12px 12px;
+  }
+
+  .session-item {
+    width: 180px;
+    flex: 0 0 180px;
+  }
+
+  .chat-body {
+    padding: 24px 16px 24px;
+  }
+
+  .message-row.is-user .message-block {
+    max-width: 88%;
+  }
+
+  .message-text,
+  .assistant-answer {
+    font-size: 15px;
+  }
+
+  .composer-shell {
+    padding: 14px 12px 26px;
   }
 }
 </style>
