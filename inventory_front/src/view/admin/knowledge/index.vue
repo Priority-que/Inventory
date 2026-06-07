@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules, type UploadFile, type UploadUserFile } from 'element-plus'
 import {
   importRagKnowledgeApi,
   searchRagKnowledgeApi,
+  uploadRagKnowledgeApi,
   type RagImportResultVO,
   type RagKnowledgeImportRequest,
   type RagSearchResultVO,
@@ -13,9 +14,13 @@ import { formatEmpty } from '@/utils/format'
 
 const importFormRef = ref<FormInstance>()
 const importLoading = ref(false)
+const uploadLoading = ref(false)
 const searchLoading = ref(false)
 const importResult = ref<RagImportResultVO | null>(null)
+const uploadResult = ref<RagImportResultVO | null>(null)
 const searchResults = ref<RagSearchResultVO[]>([])
+const selectedUploadFile = ref<UploadFile | null>(null)
+const uploadFileList = ref<UploadUserFile[]>([])
 const activeTab = ref('import')
 
 const docTypeOptions = [
@@ -32,6 +37,14 @@ const importForm = reactive<RagKnowledgeImportRequest>({
   bizIntent: 'COMMON',
   sourcePath: 'manual',
   content: '',
+})
+
+const uploadForm = reactive({
+  docCode: '',
+  title: '',
+  docType: 'BUSINESS_RULE',
+  bizIntent: 'COMMON',
+  sourcePath: '',
 })
 
 const searchForm = reactive({
@@ -66,6 +79,19 @@ function resetImportForm() {
   importFormRef.value?.clearValidate()
 }
 
+function resetUploadForm() {
+  Object.assign(uploadForm, {
+    docCode: '',
+    title: '',
+    docType: 'BUSINESS_RULE',
+    bizIntent: 'COMMON',
+    sourcePath: '',
+  })
+  selectedUploadFile.value = null
+  uploadFileList.value = []
+  uploadResult.value = null
+}
+
 async function submitImport() {
   await importFormRef.value?.validate()
   importLoading.value = true
@@ -74,6 +100,44 @@ async function submitImport() {
     ElMessage.success('知识已导入')
   } finally {
     importLoading.value = false
+  }
+}
+
+function handleUploadFileChange(file: UploadFile) {
+  selectedUploadFile.value = file
+  if (!uploadForm.title) {
+    uploadForm.title = file.name.replace(/\.[^.]+$/, '')
+  }
+  if (!uploadForm.sourcePath) {
+    uploadForm.sourcePath = file.name
+  }
+}
+
+function handleUploadFileRemove() {
+  selectedUploadFile.value = null
+}
+
+async function submitUpload() {
+  const rawFile = selectedUploadFile.value?.raw
+  if (!rawFile) {
+    ElMessage.warning('请先选择要上传的知识文件')
+    return
+  }
+
+  uploadLoading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', rawFile)
+    if (uploadForm.docCode) formData.append('docCode', uploadForm.docCode)
+    if (uploadForm.title) formData.append('title', uploadForm.title)
+    if (uploadForm.docType) formData.append('docType', uploadForm.docType)
+    if (uploadForm.bizIntent) formData.append('bizIntent', uploadForm.bizIntent)
+    if (uploadForm.sourcePath) formData.append('sourcePath', uploadForm.sourcePath)
+
+    uploadResult.value = await uploadRagKnowledgeApi(formData)
+    ElMessage.success('文件知识已导入')
+  } finally {
+    uploadLoading.value = false
   }
 }
 
@@ -117,6 +181,88 @@ function formatScore(score?: number) {
       <el-tabs v-model="activeTab" class="knowledge-tabs">
         <el-tab-pane label="知识导入" name="import">
           <div class="knowledge-form-wrap">
+            <div class="upload-import-block" v-loading="uploadLoading">
+              <div class="subsection-title">上传文件导入</div>
+              <el-upload
+                drag
+                v-model:file-list="uploadFileList"
+                :auto-upload="false"
+                :limit="1"
+                accept=".txt,.md,.markdown,.csv,.json"
+                :on-change="handleUploadFileChange"
+                :on-remove="handleUploadFileRemove"
+              >
+                <el-icon><Upload /></el-icon>
+                <div class="el-upload__text">拖拽文件到这里，或点击选择文件</div>
+                <template #tip>
+                  <div class="el-upload__tip">支持 .txt、.md、.csv、.json 文本类文件，单个文件不超过 5MB</div>
+                </template>
+              </el-upload>
+
+              <el-form :model="uploadForm" class="upload-meta-form" label-position="top">
+                <div class="form-grid">
+                  <el-form-item label="文档编码">
+                    <el-input v-model="uploadForm.docCode" placeholder="可选，不填则按文件名自动生成" />
+                  </el-form-item>
+                  <el-form-item label="标题">
+                    <el-input v-model="uploadForm.title" placeholder="可选，默认使用文件名" />
+                  </el-form-item>
+                  <el-form-item label="文档类型">
+                    <el-select v-model="uploadForm.docType" placeholder="选择文档类型">
+                      <el-option
+                        v-for="item in docTypeOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="适用场景">
+                    <el-select v-model="uploadForm.bizIntent" placeholder="选择适用场景">
+                      <el-option
+                        v-for="item in intentOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item class="full-row" label="来源路径">
+                    <el-input v-model="uploadForm.sourcePath" placeholder="可选，默认使用文件名" />
+                  </el-form-item>
+                </div>
+              </el-form>
+
+              <div class="knowledge-form-footer">
+                <el-button @click="resetUploadForm">重置上传</el-button>
+                <el-button type="primary" :loading="uploadLoading" @click="submitUpload">
+                  <el-icon><Upload /></el-icon>
+                  上传并导入
+                </el-button>
+              </div>
+
+              <el-alert
+                v-if="uploadResult"
+                class="result-alert"
+                type="success"
+                show-icon
+                :closable="false"
+                :title="uploadResult.message || '文件知识导入完成'"
+              >
+                <template #default>
+                  <div class="import-result">
+                    <span>文档编码：{{ formatEmpty(uploadResult.docCode) }}</span>
+                    <span>标题：{{ formatEmpty(uploadResult.title) }}</span>
+                    <span>适用场景：{{ getOptionLabel(intentOptions, uploadResult.bizIntent) }}</span>
+                    <span>切片数量：{{ formatEmpty(uploadResult.chunkCount) }}</span>
+                  </div>
+                </template>
+              </el-alert>
+            </div>
+
+            <el-divider />
+
+            <div class="subsection-title">粘贴正文导入</div>
             <el-form
               ref="importFormRef"
               v-loading="importLoading"
@@ -270,6 +416,21 @@ function formatScore(score?: number) {
   max-width: 800px;
   margin: 36px auto;
   padding: 0 24px;
+}
+
+.subsection-title {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.upload-import-block {
+  margin-bottom: 24px;
+}
+
+.upload-meta-form {
+  margin-top: 18px;
 }
 
 .form-grid {

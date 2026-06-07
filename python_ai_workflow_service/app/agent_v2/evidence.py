@@ -33,7 +33,7 @@ class EvidenceBuilder:
         source_tools: list[str],
         errors: list[str | None],
     ) -> AgentEvidence:
-        context = self._first_success_data(tool_results)
+        context = self._first_success_data(tool_results, exclude_tools={"search_knowledge"})
         if not isinstance(context, dict):
             return AgentEvidence(task=plan.task, summary="没有拿到订单上下文。", sourceTools=source_tools, errors=self._clean_errors(errors))
 
@@ -68,6 +68,7 @@ class EvidenceBuilder:
                 "ownerReason": responsibility.get("ownerReason"),
                 "nextAction": next_action.get("actionText"),
                 "evidence": evidence_items,
+                "knowledgeItems": self._knowledge_items(tool_results),
             },
             items=[],
             sourceTools=source_tools,
@@ -81,7 +82,7 @@ class EvidenceBuilder:
         source_tools: list[str],
         errors: list[str | None],
     ) -> AgentEvidence:
-        context = self._first_success_data(tool_results)
+        context = self._first_success_data(tool_results, exclude_tools={"search_knowledge"})
         if not isinstance(context, dict):
             return AgentEvidence(task=plan.task, summary="没有拿到预警上下文。", sourceTools=source_tools, errors=self._clean_errors(errors))
 
@@ -95,6 +96,7 @@ class EvidenceBuilder:
                 "summary": summary,
                 "ownerStats": context.get("ownerStats") or [],
                 "riskTypeStats": context.get("riskTypeStats") or [],
+                "knowledgeItems": self._knowledge_items(tool_results),
             },
             items=self._trim_items(items, 10),
             sourceTools=source_tools,
@@ -108,7 +110,7 @@ class EvidenceBuilder:
         source_tools: list[str],
         errors: list[str | None],
     ) -> AgentEvidence:
-        context = self._first_success_data(tool_results)
+        context = self._first_success_data(tool_results, exclude_tools={"search_knowledge"})
         if not isinstance(context, dict):
             return AgentEvidence(task=plan.task, summary="没有拿到供应商上下文。", sourceTools=source_tools, errors=self._clean_errors(errors))
 
@@ -139,6 +141,7 @@ class EvidenceBuilder:
                 "scoreBreakdown": context.get("scoreBreakdown") or [],
                 "weakMetrics": context.get("weakMetrics") or [],
                 "suggestion": context.get("suggestion"),
+                "knowledgeItems": self._knowledge_items(tool_results),
             },
             items=[],
             sourceTools=source_tools,
@@ -163,11 +166,22 @@ class EvidenceBuilder:
             errors=self._clean_errors(errors),
         )
 
-    def _first_success_data(self, tool_results: list[ToolCallResult]) -> Any:
+    def _first_success_data(self, tool_results: list[ToolCallResult], exclude_tools: set[str] | None = None) -> Any:
         for result in tool_results:
+            if exclude_tools and result.tool_name in exclude_tools:
+                continue
             if result.success:
                 return result.data
         return None
+
+    def _knowledge_items(self, tool_results: list[ToolCallResult]) -> list[dict[str, Any]]:
+        items: list[Any] = []
+        for result in tool_results:
+            if result.tool_name != "search_knowledge" or not result.success:
+                continue
+            if isinstance(result.data, list):
+                items.extend(result.data)
+        return self._trim_items(items, 4)
 
     def _trim_items(self, items: list[Any], limit: int) -> list[dict[str, Any]]:
         result: list[dict[str, Any]] = []
