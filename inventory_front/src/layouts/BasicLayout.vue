@@ -35,6 +35,7 @@ const roleMenuMap: Record<string, MenuGroup[]> = {
         { title: '物料管理', path: '/admin/material', icon: 'Box' },
         { title: '仓库管理', path: '/admin/warehouse', icon: 'House' },
         { title: '供应商管理', path: '/admin/supplier', icon: 'Connection' },
+        { title: '库存台账', path: '/admin/inventory', icon: 'Box' },
       ],
     },
     {
@@ -94,6 +95,7 @@ const roleMenuMap: Record<string, MenuGroup[]> = {
       items: [
         { title: '物料查询', path: '/warehouse/material', icon: 'Box' },
         { title: '仓库查询', path: '/warehouse/warehouse', icon: 'House' },
+        { title: '库存台账', path: '/warehouse/inventory', icon: 'Box' },
       ],
     },
     {
