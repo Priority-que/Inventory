@@ -88,6 +88,17 @@ const router = createRouter({
           },
         },
         {
+          path: 'manager/inventory',
+          name: 'ManagerInventory',
+          component: () => import('@/view/warehouse/inventory/index.vue'),
+          meta: {
+            title: '库存台账',
+            requiresAuth: true,
+            roles: ['PURCHASE_MANAGER'],
+            icon: 'Box',
+          },
+        },
+        {
           path: 'purchaser/request',
           name: 'PurchaserRequest',
           component: () => import('@/view/purchaser/request/index.vue'),
@@ -151,6 +162,17 @@ const router = createRouter({
             requiresAuth: true,
             roles: ['PURCHASER'],
             icon: 'TakeawayBox',
+          },
+        },
+        {
+          path: 'purchaser/inventory',
+          name: 'PurchaserInventory',
+          component: () => import('@/view/warehouse/inventory/index.vue'),
+          meta: {
+            title: '库存台账',
+            requiresAuth: true,
+            roles: ['PURCHASER'],
+            icon: 'Box',
           },
         },
         {

@@ -6,6 +6,8 @@ import { formatDateTime, formatEmpty } from '@/utils/format'
 const loading = ref(false)
 const tableData = ref<InventoryPageVO[]>([])
 const total = ref(0)
+const detailVisible = ref(false)
+const currentInventory = ref<InventoryPageVO | null>(null)
 
 const query = reactive({
   pageNum: 1,
@@ -67,6 +69,11 @@ function handleSizeChange(size: number) {
 function handleCurrentChange(page: number) {
   query.pageNum = page
   loadData()
+}
+
+function handleViewDetail(row: InventoryPageVO) {
+  currentInventory.value = row
+  detailVisible.value = true
 }
 
 onMounted(loadData)
@@ -146,6 +153,12 @@ onMounted(loadData)
           <el-table-column label="备注" min-width="170" show-overflow-tooltip>
             <template #default="{ row }">{{ formatEmpty(row.remark) }}</template>
           </el-table-column>
+
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleViewDetail(row)">查看</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
 
@@ -162,5 +175,51 @@ onMounted(loadData)
         />
       </div>
     </section>
+
+    <el-drawer v-model="detailVisible" title="库存台账详情" size="520px">
+      <el-descriptions v-if="currentInventory" class="detail-descriptions" :column="1" border>
+        <el-descriptions-item label="物料编码">
+          {{ formatEmpty(currentInventory.materialCode) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="物料名称">
+          {{ formatEmpty(currentInventory.materialName) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="规格型号">
+          {{ formatEmpty(currentInventory.specification) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="单位">
+          {{ formatEmpty(currentInventory.unit) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="仓库名称">
+          {{ formatEmpty(currentInventory.warehouseName) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="库存状态">
+          <el-tag :type="getStockStatusType(currentInventory.stockStatus)" effect="plain">
+            {{ getStockStatusLabel(currentInventory.stockStatus) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="当前库存">
+          {{ formatEmpty(currentInventory.currentNumber) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="安全库存">
+          {{ formatEmpty(currentInventory.safetyNumber) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="库存上限">
+          {{ formatEmpty(currentInventory.upperNumber) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="最后入库时间">
+          {{ formatDateTime(currentInventory.lastInboundTime) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间">
+          {{ formatDateTime(currentInventory.createTime) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="更新时间">
+          {{ formatDateTime(currentInventory.updateTime) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="备注">
+          {{ formatEmpty(currentInventory.remark) }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-drawer>
   </div>
 </template>
