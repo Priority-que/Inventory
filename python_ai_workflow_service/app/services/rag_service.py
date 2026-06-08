@@ -1,4 +1,5 @@
 import hashlib
+from pathlib import Path
 import re
 import struct
 from typing import Any
@@ -15,6 +16,8 @@ from app.schemas.rag import RagImportResultVO, RagKnowledgeImportRequest, RagSea
 class RagService:
     CHUNK_SIZE = 500
     CHUNK_OVERLAP = 80
+    MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+    SUPPORTED_TEXT_EXTENSIONS = {".txt", ".md", ".markdown", ".csv", ".json"}
     DOC_CODE_PATTERN = re.compile(r"^[A-Z0-9_\-]{3,64}$")
 
     def __init__(self):
@@ -28,6 +31,35 @@ class RagService:
             decode_responses=False,
         )
         self._vector_dim: int | None = None
+
+    async def import_text_file(
+        self,
+        filename: str | None,
+        content_bytes: bytes,
+        doc_code: str | None,
+        title: str | None,
+        doc_type: str | None,
+        biz_intent: str | None,
+        source_path: str | None,
+    ) -> RagImportResultVO:
+        safe_filename = self._safe_filename(filename)
+        self._validate_text_upload(safe_filename, content_bytes)
+
+        content = self._decode_text_file(content_bytes, safe_filename)
+        generated_doc_code = doc_code or self._generate_doc_code(safe_filename, content_bytes)
+        generated_title = title or Path(safe_filename).stem or generated_doc_code
+        generated_source_path = source_path or safe_filename
+
+        return await self.import_knowledge(
+            RagKnowledgeImportRequest(
+                docCode=generated_doc_code,
+                title=generated_title,
+                docType=doc_type,
+                bizIntent=biz_intent,
+                sourcePath=generated_source_path,
+                content=content,
+            )
+        )
 
     async def import_knowledge(self, request: RagKnowledgeImportRequest) -> RagImportResultVO:
         doc_code = self._validate_doc_code(request.doc_code)
@@ -408,3 +440,43 @@ class RagService:
             return float(value)
         except ValueError:
             return None
+
+    def _safe_filename(self, filename: str | None) -> str:
+        value = (filename or "").strip().replace("\\", "/").split("/")[-1]
+        return value or "knowledge.txt"
+
+    def _validate_text_upload(self, filename: str, content_bytes: bytes) -> None:
+        if not content_bytes:
+            raise ApiException(code=400, msg="上传文件不能为空", http_status_code=400)
+        if len(content_bytes) > self.MAX_UPLOAD_BYTES:
+            raise ApiException(code=400, msg="上传文件不能超过 5MB", http_status_code=400)
+
+        suffix = Path(filename).suffix.lower()
+        if suffix not in self.SUPPORTED_TEXT_EXTENSIONS:
+            supported = "、".join(sorted(self.SUPPORTED_TEXT_EXTENSIONS))
+            raise ApiException(code=400, msg=f"暂只支持文本类文件：{supported}", http_status_code=400)
+
+    def _decode_text_file(self, content_bytes: bytes, filename: str) -> str:
+        for encoding in ("utf-8-sig", "utf-8", "gb18030"):
+            try:
+                text = content_bytes.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            raise ApiException(code=400, msg=f"{filename} 不是可识别的文本编码", http_status_code=400)
+
+        text = text.replace("\x00", "").strip()
+        if not text:
+            raise ApiException(code=400, msg="上传文件解析后内容为空", http_status_code=400)
+        return text
+
+    def _generate_doc_code(self, filename: str, content_bytes: bytes) -> str:
+        stem = Path(filename).stem.upper()
+        normalized = re.sub(r"[^A-Z0-9_\-]+", "_", stem).strip("_-")
+        if len(normalized) < 3:
+            normalized = "RAG_DOC"
+
+        digest = hashlib.sha256(content_bytes).hexdigest()[:8].upper()
+        prefix = normalized[:55].rstrip("_-") or "RAG_DOC"
+        return f"{prefix}_{digest}"[:64]

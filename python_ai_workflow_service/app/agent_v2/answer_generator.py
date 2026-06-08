@@ -1,5 +1,6 @@
+import asyncio
 import json
-from typing import Any
+from typing import Any, AsyncIterator
 
 from app.agent_v2.schemas import AgentEvidence, AgentMemory, AgentPlan, AnswerDraft, ConversationUnderstanding
 
@@ -25,6 +26,107 @@ class AnswerGenerator:
         llm_answer = await self._generate_with_llm(message, memory, understanding, plan, evidence, draft)
         return (llm_answer or fallback), draft
 
+    def build_draft(
+        self,
+        message: str,
+        understanding: ConversationUnderstanding,
+        plan: AgentPlan,
+        evidence: AgentEvidence,
+    ) -> AnswerDraft:
+        return self._build_draft(message, understanding, plan, evidence)
+
+    def clean_answer(self, text: str | None) -> str:
+        return self._strip_model_noise(text)
+
+    async def generate_stream(
+        self,
+        message: str,
+        memory: AgentMemory,
+        understanding: ConversationUnderstanding,
+        plan: AgentPlan,
+        evidence: AgentEvidence,
+        draft: AnswerDraft | None = None,
+    ) -> AsyncIterator[str]:
+        async for event in self.generate_stream_events(message, memory, understanding, plan, evidence, draft):
+            if event["type"] == "content":
+                yield event["text"]
+
+    async def generate_stream_events(
+        self,
+        message: str,
+        memory: AgentMemory,
+        understanding: ConversationUnderstanding,
+        plan: AgentPlan,
+        evidence: AgentEvidence,
+        draft: AnswerDraft | None = None,
+    ) -> AsyncIterator[dict[str, str]]:
+        answer_draft = draft or self._build_draft(message, understanding, plan, evidence)
+        fallback = self.render_draft(answer_draft)
+
+        if not self._should_use_llm(plan, evidence):
+            async for chunk in self._fallback_chunks(fallback):
+                yield {"type": "content", "text": chunk}
+            return
+
+        stream_event_method = getattr(self.llm_client, "chat_text_stream_events", None)
+        stream_method = getattr(self.llm_client, "chat_text_stream", None)
+        if callable(stream_event_method):
+            system_prompt, user_prompt = self._build_llm_request(
+                message,
+                memory,
+                understanding,
+                plan,
+                evidence,
+                answer_draft,
+            )
+            has_content = False
+
+            try:
+                async for event in stream_event_method(system_prompt, user_prompt, temperature=0.25):
+                    text = event.get("text") or ""
+                    event_type = event.get("type")
+                    if not text:
+                        continue
+                    if "LLM 未配置" in text:
+                        break
+                    if event_type == "reasoning":
+                        yield {"type": "thinking", "text": text}
+                        continue
+                    has_content = True
+                    yield {"type": "content", "text": text}
+            except Exception:
+                if has_content:
+                    raise
+
+            if not has_content:
+                async for chunk in self._fallback_chunks(fallback):
+                    yield {"type": "content", "text": chunk}
+            return
+
+        if not callable(stream_method):
+            async for chunk in self._fallback_chunks(fallback):
+                yield {"type": "content", "text": chunk}
+            return
+
+        system_prompt, user_prompt = self._build_llm_request(message, memory, understanding, plan, evidence, answer_draft)
+        has_chunk = False
+
+        try:
+            async for chunk in stream_method(system_prompt, user_prompt, temperature=0.25):
+                if not chunk:
+                    continue
+                if "LLM 未配置" in chunk:
+                    break
+                has_chunk = True
+                yield {"type": "content", "text": chunk}
+        except Exception:
+            if has_chunk:
+                raise
+
+        if not has_chunk:
+            async for chunk in self._fallback_chunks(fallback):
+                yield {"type": "content", "text": chunk}
+
     def _should_use_llm(self, plan: AgentPlan, evidence: AgentEvidence) -> bool:
         if plan.missing_fields or evidence.errors:
             return False
@@ -42,27 +144,12 @@ class AnswerGenerator:
         evidence: AgentEvidence,
         draft: AnswerDraft,
     ) -> str | None:
-        system_prompt = (
-            "你是采购入库协同系统里的对话型业务助手。"
-            "你可以自然聊天和承接情绪；遇到业务问题时，只能基于输入证据回答。"
-            "禁止编造订单号、供应商、负责人、数量、状态、评分、风险等级。"
-            "不要输出 JSON、字段名、内部码或 Markdown 标题。"
-            "回答要像靠谱同事：先给结论，再解释依据，最后给下一步。"
-        )
-
-        payload = {
-            "用户问题": message,
-            "对话理解": understanding.model_dump(by_alias=True),
-            "任务计划": plan.model_dump(by_alias=True),
-            "证据": evidence.model_dump(by_alias=True),
-            "稳定草稿": draft.model_dump(by_alias=True),
-            "最近消息": [item.model_dump(by_alias=True) for item in memory.recent_messages[-6:]],
-        }
+        system_prompt, user_prompt = self._build_llm_request(message, memory, understanding, plan, evidence, draft)
 
         try:
             answer = await self.llm_client.chat_text(
                 system_prompt,
-                json.dumps(payload, ensure_ascii=False, default=str),
+                user_prompt,
                 temperature=0.25,
             )
         except Exception:
@@ -72,6 +159,63 @@ class AnswerGenerator:
         if not cleaned or "LLM 未配置" in cleaned:
             return None
         return cleaned
+
+    def _build_llm_request(
+        self,
+        message: str,
+        memory: AgentMemory,
+        understanding: ConversationUnderstanding,
+        plan: AgentPlan,
+        evidence: AgentEvidence,
+        draft: AnswerDraft,
+    ) -> tuple[str, str]:
+        if self._is_business_task(plan):
+            system_prompt = (
+                "你是库存采购协同系统里的业务分析助手。"
+                "只有当用户明确询问库存、采购、订单、供应商、风险、规则等业务问题时，才使用业务分析口吻。"
+                "业务问题必须严格基于输入证据回答，禁止编造订单号、供应商、负责人、数量、状态、评分、风险等级。"
+                "如果证据里有 knowledgeItems，它们只代表静态规则、流程说明或论文表达参考，不能当作实时业务数据。"
+                "不要输出 JSON、字段名、内部码或 Markdown 标题。"
+                "回答要自然，不要机械套模板；能直接回答就直接回答，需要说明依据时再说明依据。"
+            )
+            payload = {
+                "用户问题": message,
+                "对话理解": understanding.model_dump(by_alias=True),
+                "任务计划": plan.model_dump(by_alias=True),
+                "证据": evidence.model_dump(by_alias=True),
+                "稳定草稿": draft.model_dump(by_alias=True),
+                "最近消息": [item.model_dump(by_alias=True) for item in memory.recent_messages[-6:]],
+            }
+        else:
+            system_prompt = (
+                "你是一个自然、温和、可靠的 AI 助手。"
+                "用户闲聊、表达情绪、问你是谁、问你是什么模型或问日常问题时，像正常聊天一样回应。"
+                "除非用户主动提到库存、采购、订单、供应商、风险、规则等业务问题，否则不要主动把话题引到业务系统。"
+                "如果用户问你是什么模型，只说明你是当前系统中的 AI 智能助手，底层模型由系统配置决定；不要编造或猜测具体模型名称。"
+                "如果用户表达焦虑、烦躁或压力，先接住情绪，再用简短、具体的方式陪他拆问题。"
+                "不要输出 JSON、字段名、内部码或 Markdown 标题。"
+            )
+            payload = {
+                "用户问题": message,
+                "对话理解": {
+                    "interactionType": understanding.interaction_type,
+                    "emotion": understanding.emotion,
+                    "speechAct": understanding.speech_act,
+                    "isFollowUp": understanding.is_follow_up,
+                },
+                "最近消息": [item.model_dump(by_alias=True) for item in memory.recent_messages[-6:]],
+            }
+        return system_prompt, json.dumps(payload, ensure_ascii=False, default=str)
+
+    def _is_business_task(self, plan: AgentPlan) -> bool:
+        return plan.task in {"ORDER_DIAGNOSIS", "WARNING_SCAN", "SUPPLIER_SCORE", "KNOWLEDGE_QA"}
+
+    async def _fallback_chunks(self, text: str) -> AsyncIterator[str]:
+        chunk_size = 4
+        value = text or ""
+        for index in range(0, len(value), chunk_size):
+            yield value[index : index + chunk_size]
+            await asyncio.sleep(0.04)
 
     def _build_draft(
         self,
@@ -120,10 +264,19 @@ class AnswerGenerator:
 
     def _emotion_draft(self, understanding: ConversationUnderstanding) -> AnswerDraft:
         if understanding.emotion == "frustrated":
-            return AnswerDraft(conclusion="我知道你现在有点烦，先别急，我们把问题拆小一点看。")
+            return AnswerDraft(
+                conclusion="我知道你现在有点烦，先别急。这个系统现在看起来乱，通常不是你写不下去，而是业务、前端、后端和 AI 链路都堆在一起了。",
+                nextActions=["我们可以先只抓一个问题：你现在最想先理清页面、接口、数据库，还是 Agent 链路？"],
+            )
         if understanding.emotion == "anxious":
-            return AnswerDraft(conclusion="我知道你比较着急，我会先抓最关键的信息帮你判断。")
-        return AnswerDraft(conclusion="我在，先接住你这句话，然后我们继续往下看。")
+            return AnswerDraft(
+                conclusion="我知道你比较着急，我会先帮你抓最关键的信息，不把问题继续扩大。",
+                nextActions=["你可以直接把最卡的一处发我，我先帮你判断它属于业务问题、代码问题还是链路问题。"],
+            )
+        return AnswerDraft(
+            conclusion="我在。你这个感觉可以理解，项目写到后面很容易从“功能很多”变成“线索很多”。",
+            nextActions=["我们可以继续往下拆，你先说现在最乱的是哪一块。"],
+        )
 
     def _order_draft(self, plan: AgentPlan, evidence: AgentEvidence) -> AnswerDraft:
         facts = evidence.facts
