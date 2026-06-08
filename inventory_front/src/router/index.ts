@@ -53,6 +53,13 @@ const router = createRouter({
           meta: { title: '供应商管理', requiresAuth: true, roles: ['ADMIN'], icon: 'Connection' },
         },
         {
+          path:'admin/inventory',
+          name:'AdminInventory',
+          component: () => import('@/view/warehouse/inventory/index.vue'),
+          meta: {
+            title: '库存台账', requiresAuth: true,roles: ['ADMIN'],icon: 'Box'},
+        },
+        {
           path: 'admin/agent',
           name: 'AdminAgentRisk',
           component: () => import('@/view/admin/agent/index.vue'),
@@ -78,6 +85,17 @@ const router = createRouter({
             requiresAuth: true,
             roles: ['PURCHASE_MANAGER'],
             icon: 'Operation',
+          },
+        },
+        {
+          path: 'manager/inventory',
+          name: 'ManagerInventory',
+          component: () => import('@/view/warehouse/inventory/index.vue'),
+          meta: {
+            title: '库存台账',
+            requiresAuth: true,
+            roles: ['PURCHASE_MANAGER'],
+            icon: 'Box',
           },
         },
         {
@@ -147,6 +165,17 @@ const router = createRouter({
           },
         },
         {
+          path: 'purchaser/inventory',
+          name: 'PurchaserInventory',
+          component: () => import('@/view/warehouse/inventory/index.vue'),
+          meta: {
+            title: '库存台账',
+            requiresAuth: true,
+            roles: ['PURCHASER'],
+            icon: 'Box',
+          },
+        },
+        {
           path: 'purchaser/order-diagnosis',
           name: 'PurchaserOrderDiagnosis',
           redirect: '/assistant',
@@ -188,6 +217,17 @@ const router = createRouter({
             requiresAuth: true,
             roles: ['WAREHOUSE'],
             icon: 'TakeawayBox',
+          },
+        },
+        {
+          path: 'warehouse/inventory',
+          name: 'WarehouseInventory',
+          component: () => import('@/view/warehouse/inventory/index.vue'),
+          meta: {
+            title: '库存台账',
+            requiresAuth: true,
+            roles: ['WAREHOUSE'],
+            icon: 'Box',
           },
         },
         {

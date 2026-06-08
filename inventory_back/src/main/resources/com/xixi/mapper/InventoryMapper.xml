@@ -2,6 +2,63 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.xixi.mapper.InventoryMapper">
+    <select id="getInventoryPage" resultType="com.xixi.pojo.vo.inventory.InventoryPageVO">
+        select inv.id,
+        inv.material_id,
+        m.code as materialCode,
+        m.name as materialName,
+        m.specification,
+        m.unit,
+        inv.warehouse_id,
+        w.name as warehouseName,
+        inv.current_number,
+        m.safety_number,
+        m.upper_number,
+        case
+        when m.safety_number is not null and inv.current_number &lt; m.safety_number then 'LOW'
+        when m.upper_number is not null and inv.current_number > m.upper_number then 'OVER'
+        else 'NORMAL'
+        end as stockStatus,
+        inv.last_inbound_time,
+        inv.remark,
+        inv.create_time,
+        inv.update_time
+        from inventory inv
+        left join material m on inv.material_id = m.id and m.deleted = 0
+        left join warehouse w on inv.warehouse_id = w.id and w.deleted = 0
+        <where>
+            inv.deleted = 0
+            <if test="q.materialCode != null and q.materialCode != ''">
+                and m.code like concat('%', #{q.materialCode}, '%')
+            </if>
+            <if test="q.materialName != null and q.materialName != ''">
+                and m.name like concat('%', #{q.materialName}, '%')
+            </if>
+            <if test="q.warehouseName != null and q.warehouseName != ''">
+                and w.name like concat('%', #{q.warehouseName}, '%')
+            </if>
+            <if test="q.stockStatus != null and q.stockStatus != ''">
+                <choose>
+                    <when test="q.stockStatus == 'LOW'">
+                        and m.safety_number is not null
+                        and inv.current_number &lt; m.safety_number
+                    </when>
+                    <when test="q.stockStatus == 'OVER'">
+                        and m.upper_number is not null
+                        and inv.current_number > m.upper_number
+                    </when>
+                    <when test="q.stockStatus == 'NORMAL'">
+                        and (
+                        (m.safety_number is null or inv.current_number >= m.safety_number)
+                        and (m.upper_number is null or inv.current_number &lt;= m.upper_number)
+                        )
+                    </when>
+                </choose>
+            </if>
+        </where>
+        order by inv.update_time desc, inv.id desc
+    </select>
+
     <select id="lockByMaterialAndWarehouse" resultType="com.xixi.entity.Inventory">
         select id, material_id, warehouse_id, current_number, last_inbound_time,
                remark, create_time, update_time, deleted
