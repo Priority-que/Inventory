@@ -29,10 +29,18 @@ export interface SupplierVO extends SupplierDTO {
   id: number
   fileRound?: number
   status?: string
+  submitTime?: string
+  reviewTime?: string
+  reviewUserId?: number
   reviewNote?: string
   createTime?: string
   updateTime?: string
   deleted?: number
+}
+
+export interface SupplierReviewDTO {
+  id: number
+  reviewNote?: string
 }
 
 export interface SupplierFileUploadParams {
@@ -87,5 +95,37 @@ export function uploadSupplierFileApi(data: SupplierFileUploadParams) {
     url: '/supplierFile/uploadSupplierFile',
     method: 'post',
     data: formData,
+  })
+}
+
+export function submitSupplierReviewApi(data: SupplierReviewDTO) {
+  return request<null>({
+    url: '/supplier/submitReview',
+    method: 'put',
+    data,
+  })
+}
+
+export function approveSupplierApi(data: SupplierReviewDTO) {
+  return request<null>({
+    url: '/supplier/approve',
+    method: 'put',
+    data,
+  })
+}
+
+export function rejectSupplierApi(data: SupplierReviewDTO) {
+  return request<null>({
+    url: '/supplier/reject',
+    method: 'put',
+    data,
+  })
+}
+
+export function disableSupplierApi(data: SupplierReviewDTO) {
+  return request<null>({
+    url: '/supplier/disable',
+    method: 'put',
+    data,
   })
 }

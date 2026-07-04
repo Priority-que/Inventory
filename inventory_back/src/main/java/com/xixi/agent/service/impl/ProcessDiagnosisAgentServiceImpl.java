@@ -111,11 +111,19 @@ public class ProcessDiagnosisAgentServiceImpl implements ProcessDiagnosisAgentSe
             return vo;
         }
 
-        if("PARTIAL_ARRIVAL".equals(snapshot.getStatus())
+        if(("PARTIAL_ARRIVAL".equals(snapshot.getStatus()) || "WAIT_INBOUND".equals(snapshot.getStatus()))
                 && totalArrived.compareTo(totalOrder) >= 0
                 && totalInbound.compareTo(totalOrder) < 0){
             vo.setCurrentStage("入库确认阶段");
             vo.setBlockReason("订单已全部到货，但仍有部分数量未确认入库。");
+            vo.setSuggestOwner("WAREHOUSE");
+            vo.setSuggestAction("请仓库岗检查待确认入库单并执行确认入库。");
+            return vo;
+        }
+
+        if("WAIT_INBOUND".equals(snapshot.getStatus())){
+            vo.setCurrentStage("入库确认阶段");
+            vo.setBlockReason("订单已进入待入库状态，需要仓库继续处理入库确认。");
             vo.setSuggestOwner("WAREHOUSE");
             vo.setSuggestAction("请仓库岗检查待确认入库单并执行确认入库。");
             return vo;

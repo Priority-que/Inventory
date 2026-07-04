@@ -22,7 +22,12 @@ public interface InventoryMapper extends BaseMapper<Inventory> {
     Inventory lockByMaterialAndWarehouse(@Param("materialId") Long materialId,
                                          @Param("warehouseId") Long warehouseId);
 
+    Inventory lockById(@Param("id") Long id);
+
     int increaseCurrentNumber(@Param("id") Long id,
                               @Param("changeNumber") BigDecimal changeNumber,
                               @Param("lastInboundTime") LocalDateTime lastInboundTime);
+
+    int adjustCurrentNumber(@Param("id") Long id,
+                            @Param("changeNumber") BigDecimal changeNumber);
 }

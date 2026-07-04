@@ -33,8 +33,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import static com.xixi.util.SecurityUtils.getCurrentName;
 import static com.xixi.util.SecurityUtils.getCurrentUserId;
-import static com.xixi.util.SecurityUtils.getCurrentUsername;
 
 @Service
 @RequiredArgsConstructor
@@ -250,7 +250,7 @@ public class InboundServiceImpl implements InboundService {
             inventoryLog.setChangeNumber(inboundItem.getInboundNumber());
             inventoryLog.setAfterNumber(afterNumber);
             inventoryLog.setOperatorId(currentUserId);
-            inventoryLog.setOperatorName(getCurrentUsername());
+            inventoryLog.setOperatorName(getCurrentName());
             inventoryLog.setRemark("由入库单 " + inbound.getInboundNo() + " 触发的库存变更");
             inventoryLog.setOperateTime(now);
             if (inventoryLogMapper.insert(inventoryLog) <= 0) {

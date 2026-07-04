@@ -2,6 +2,7 @@ package com.xixi.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.xixi.pojo.dto.supplier.SupplierDTO;
+import com.xixi.pojo.dto.supplier.SupplierReviewDTO;
 import com.xixi.pojo.query.supplier.SupplierPageQuery;
 import com.xixi.pojo.vo.Result;
 import com.xixi.pojo.vo.supplier.SupplierVO;
@@ -16,4 +17,12 @@ public interface SupplierService {
     Result updateSupplier(SupplierDTO supplierDTO);
 
     Result deleteSupplier(List<Integer> ids);
+
+    Result submitSupplierReview(SupplierReviewDTO supplierReviewDTO);
+
+    Result approveSupplier(SupplierReviewDTO supplierReviewDTO);
+
+    Result rejectSupplier(SupplierReviewDTO supplierReviewDTO);
+
+    Result disableSupplier(SupplierReviewDTO supplierReviewDTO);
 }

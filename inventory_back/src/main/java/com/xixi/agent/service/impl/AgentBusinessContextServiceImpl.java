@@ -177,7 +177,9 @@ public class AgentBusinessContextServiceImpl implements AgentBusinessContextServ
             return;
         }
 
-        if ("PARTIAL_ARRIVAL".equals(status) && totalArrive.compareTo(totalOrder) >= 0 && totalInbound.compareTo(totalOrder) < 0) {
+        if (("PARTIAL_ARRIVAL".equals(status) || "WAIT_INBOUND".equals(status))
+                && totalArrive.compareTo(totalOrder) >= 0
+                && totalInbound.compareTo(totalOrder) < 0) {
             fillOrderContext(context, row, "入库确认阶段", "订单已全部到货，但仍有部分数量未确认入库。", ROLE_WAREHOUSE,
                     "当前货物已经到达，问题转到仓库入库确认环节，所以第一责任点在仓库侧。", "请仓库侧检查待确认入库单并执行确认入库。");
             return;
@@ -479,6 +481,9 @@ public class AgentBusinessContextServiceImpl implements AgentBusinessContextServ
         }
         if ("PARTIAL_ARRIVAL".equals(status)) {
             return "部分到货";
+        }
+        if ("WAIT_INBOUND".equals(status)) {
+            return "待入库";
         }
         if ("COMPLETED".equals(status)) {
             return "已完成";

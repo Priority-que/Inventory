@@ -12,11 +12,16 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import {
   addSupplierApi,
+  approveSupplierApi,
   deleteSupplierApi,
+  disableSupplierApi,
   getSupplierPageApi,
+  rejectSupplierApi,
+  submitSupplierReviewApi,
   updateSupplierApi,
   uploadSupplierFileApi,
   type SupplierDTO,
+  type SupplierReviewDTO,
   type SupplierVO,
 } from '@/api/supplier'
 import { fileTypeOptions, getOptionLabel, getOptionType, supplierStatusOptions } from '@/constants/business'
@@ -84,6 +89,14 @@ const uploadForm = reactive({
 
 const detailVisible = ref(false)
 const detail = ref<SupplierVO | null>(null)
+const reviewDialogVisible = ref(false)
+const reviewLoading = ref(false)
+const reviewMode = ref<'approve' | 'reject' | 'disable'>('approve')
+const reviewForm = reactive<SupplierReviewDTO>({
+  id: 0,
+  reviewNote: '',
+})
+const reviewSupplierName = ref('')
 
 const formRules: FormRules<SupplierDTO> = {
   code: [{ required: true, message: '请输入供应商编码', trigger: 'blur' }],
@@ -133,6 +146,22 @@ function canOperateRow(row: SupplierVO) {
   }
 
   return false
+}
+
+function canSubmitReview(row: SupplierVO) {
+  return canOperateRow(row) && (row.status === 'DRAFT' || row.status === 'REJECTED')
+}
+
+function canApproveRow(row: SupplierVO) {
+  return isAdmin.value && row.status === 'PENDING'
+}
+
+function canRejectRow(row: SupplierVO) {
+  return isAdmin.value && row.status === 'PENDING'
+}
+
+function canDisableRow(row: SupplierVO) {
+  return isAdmin.value && row.status !== 'DISABLED'
 }
 
 function resetForm() {
@@ -255,6 +284,51 @@ async function submitUpload() {
     loadData()
   } finally {
     uploadLoading.value = false
+  }
+}
+
+async function handleSubmitReview(row: SupplierVO) {
+  await submitSupplierReviewApi({ id: row.id })
+  ElMessage.success('供应商资质已提交审核')
+  loadData()
+}
+
+function openReviewDialog(row: SupplierVO, mode: 'approve' | 'reject' | 'disable') {
+  reviewMode.value = mode
+  reviewSupplierName.value = row.name || ''
+  Object.assign(reviewForm, {
+    id: row.id,
+    reviewNote: '',
+  })
+  reviewDialogVisible.value = true
+}
+
+async function submitReviewAction() {
+  if (!reviewForm.id) {
+    ElMessage.warning('未获取到供应商信息')
+    return
+  }
+  if ((reviewMode.value === 'reject' || reviewMode.value === 'disable') && !reviewForm.reviewNote?.trim()) {
+    ElMessage.warning(reviewMode.value === 'reject' ? '请输入驳回原因' : '请输入停用原因')
+    return
+  }
+
+  reviewLoading.value = true
+  try {
+    if (reviewMode.value === 'approve') {
+      await approveSupplierApi({ ...reviewForm })
+      ElMessage.success('供应商资质已审核通过')
+    } else if (reviewMode.value === 'reject') {
+      await rejectSupplierApi({ ...reviewForm })
+      ElMessage.success('供应商资质已驳回')
+    } else {
+      await disableSupplierApi({ ...reviewForm })
+      ElMessage.success('供应商已停用')
+    }
+    reviewDialogVisible.value = false
+    loadData()
+  } finally {
+    reviewLoading.value = false
   }
 }
 
@@ -385,6 +459,18 @@ onMounted(loadData)
                 <el-button link type="primary" @click="openDetail(row)">详情</el-button>
                 <el-button v-if="canOperateRow(row)" link type="primary" @click="openEditDialog(row)">编辑</el-button>
                 <el-button v-if="canOperateRow(row)" link type="primary" @click="openUploadDialog(row)">附件</el-button>
+                <el-button v-if="canSubmitReview(row)" link type="success" @click="handleSubmitReview(row)">
+                  提交审核
+                </el-button>
+                <el-button v-if="canApproveRow(row)" link type="success" @click="openReviewDialog(row, 'approve')">
+                  通过
+                </el-button>
+                <el-button v-if="canRejectRow(row)" link type="warning" @click="openReviewDialog(row, 'reject')">
+                  驳回
+                </el-button>
+                <el-button v-if="canDisableRow(row)" link type="danger" @click="openReviewDialog(row, 'disable')">
+                  停用
+                </el-button>
                 <el-popconfirm
                   v-if="isAdmin"
                   title="确定删除该供应商吗？"
@@ -511,6 +597,9 @@ onMounted(loadData)
         <el-descriptions-item label="地址">{{ formatEmpty(detail.address) }}</el-descriptions-item>
         <el-descriptions-item label="营业执照号">{{ formatEmpty(detail.licenseNo) }}</el-descriptions-item>
         <el-descriptions-item label="附件轮次">{{ formatEmpty(detail.fileRound) }}</el-descriptions-item>
+        <el-descriptions-item label="提交审核时间">{{ formatDateTime(detail.submitTime) }}</el-descriptions-item>
+        <el-descriptions-item label="审核时间">{{ formatDateTime(detail.reviewTime) }}</el-descriptions-item>
+        <el-descriptions-item label="审核人ID">{{ formatEmpty(detail.reviewUserId) }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag class="status-tag" :type="getOptionType(supplierStatusOptions, detail.status)" effect="plain">
             {{ getOptionLabel(supplierStatusOptions, detail.status) }}
@@ -523,6 +612,38 @@ onMounted(loadData)
         <el-descriptions-item label="删除标记">{{ formatEmpty(detail.deleted) }}</el-descriptions-item>
       </el-descriptions>
     </el-drawer>
+
+    <el-dialog
+      v-model="reviewDialogVisible"
+      :title="reviewMode === 'approve' ? '审核通过供应商' : reviewMode === 'reject' ? '驳回供应商' : '停用供应商'"
+      width="520px"
+    >
+      <el-form :model="reviewForm" label-width="96px">
+        <el-form-item label="供应商">
+          <el-input :model-value="reviewSupplierName" disabled />
+        </el-form-item>
+        <el-form-item :label="reviewMode === 'approve' ? '审核意见' : reviewMode === 'reject' ? '驳回原因' : '停用原因'">
+          <el-input
+            v-model="reviewForm.reviewNote"
+            :rows="4"
+            type="textarea"
+            :placeholder="reviewMode === 'approve' ? '可填写审核意见' : '请输入原因'"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="reviewDialogVisible = false">取消</el-button>
+          <el-button
+            :type="reviewMode === 'approve' ? 'primary' : reviewMode === 'reject' ? 'warning' : 'danger'"
+            :loading="reviewLoading"
+            @click="submitReviewAction"
+          >
+            确认
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

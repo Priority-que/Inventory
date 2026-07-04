@@ -23,6 +23,9 @@
             <if test="q.status != null and q.status != ''">
                 and status = #{q.status}
             </if>
+            <if test="q.userId != null">
+                and user_id = #{q.userId}
+            </if>
             and deleted = 0
         </where>
     </select>

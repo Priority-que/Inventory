@@ -22,4 +22,12 @@
           and active_flag = 1
           and deleted = 0
     </update>
+
+    <select id="countActiveFile" resultType="Integer">
+        select count(1)
+        from supplier_file
+        where supplier_id = #{supplierId}
+          and active_flag = 1
+          and deleted = 0
+    </select>
 </mapper>

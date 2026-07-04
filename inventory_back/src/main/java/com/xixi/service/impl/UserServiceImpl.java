@@ -22,6 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
+import java.util.List;
+
+import static com.xixi.util.SecurityUtils.getCurrentUserId;
+import static com.xixi.util.SecurityUtils.getCurrentUserRoleCodes;
+
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -38,6 +43,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserVO getUserDetailById(Long id) {
+        if (!hasCurrentRole("ADMIN")) {
+            Long currentUserId = getCurrentUserId();
+            if (currentUserId == null || !currentUserId.equals(id)) {
+                return null;
+            }
+        }
         return userMapper.getUserDetailById(id);
     }
 
@@ -110,6 +121,12 @@ public class UserServiceImpl implements UserService {
     public Result updateUser(UserDTO userDTO) {
         if (userDTO.getId() == null) {
             return Result.error("用户ID不能为空");
+        }
+        if (!hasCurrentRole("ADMIN")) {
+            Long currentUserId = getCurrentUserId();
+            if (currentUserId == null || !currentUserId.equals(userDTO.getId())) {
+                return Result.error(403, "只能修改自己的用户资料");
+            }
         }
         User user = new User();
         user.setId(userDTO.getId());
@@ -213,5 +230,10 @@ public class UserServiceImpl implements UserService {
         }
         TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
         return Result.error("修改用户角色失败");
+    }
+
+    private boolean hasCurrentRole(String roleCode) {
+        List<String> roleCodes = getCurrentUserRoleCodes();
+        return roleCodes != null && roleCodes.contains(roleCode);
     }
 }

@@ -1,6 +1,7 @@
 package com.xixi.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.xixi.pojo.dto.inventory.InventoryAdjustDTO;
 import com.xixi.pojo.query.inventory.InventoryPageQuery;
 import com.xixi.pojo.vo.Result;
 import com.xixi.pojo.vo.inventory.InventoryPageVO;
@@ -10,6 +11,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,5 +30,12 @@ public class InventoryController {
     public Result getInventoryPage(InventoryPageQuery inventoryPageQuery) {
         IPage<InventoryPageVO> page = inventoryService.getInventoryPage(inventoryPageQuery);
         return Result.success(page);
+    }
+
+    @Operation(summary = "Adjust inventory", operationId = "adjustInventory")
+    @PostMapping("/adjust")
+    @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
+    public Result adjustInventory(@RequestBody InventoryAdjustDTO inventoryAdjustDTO) {
+        return inventoryService.adjustInventory(inventoryAdjustDTO);
     }
 }

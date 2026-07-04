@@ -14,6 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.List;
+
+import static com.xixi.util.SecurityUtils.getCurrentUserId;
+import static com.xixi.util.SecurityUtils.getCurrentUserRoleCodes;
 
 @Service
 @RequiredArgsConstructor
@@ -52,6 +56,14 @@ public class SupplierFileServiceImpl implements SupplierFileService {
         if (supplier == null) {
             return Result.error("供应商不存在！");
         }
+        if (!canManageSupplier(supplier)) {
+            return Result.error(403, "只能上传自己的供应商附件");
+        }
+        if (isPlainSupplier()
+                && !"DRAFT".equals(supplier.getStatus())
+                && !"REJECTED".equals(supplier.getStatus())) {
+            return Result.error("当前供应商状态不允许上传附件");
+        }
 
         Integer maxFileRound = supplierFileMapper.getMaxFileRound(supplierId, fileType);
         Integer newRound = maxFileRound == null ? 1 : maxFileRound + 1;
@@ -85,5 +97,28 @@ public class SupplierFileServiceImpl implements SupplierFileService {
             throw new RuntimeException("更新供应商附件轮次失败！");
         }
         return Result.success("上传供应商附件成功！", supplierFile.getId());
+    }
+
+    private boolean canManageSupplier(Supplier supplier) {
+        if (hasCurrentRole("ADMIN")) {
+            return true;
+        }
+        if (!hasCurrentRole("SUPPLIER")) {
+            return false;
+        }
+        Long currentUserId = getCurrentUserId();
+        return currentUserId != null && currentUserId.equals(supplier.getUserId());
+    }
+
+    private boolean isPlainSupplier() {
+        List<String> roleCodes = getCurrentUserRoleCodes();
+        return roleCodes != null
+                && roleCodes.contains("SUPPLIER")
+                && !roleCodes.contains("ADMIN");
+    }
+
+    private boolean hasCurrentRole(String roleCode) {
+        List<String> roleCodes = getCurrentUserRoleCodes();
+        return roleCodes != null && roleCodes.contains(roleCode);
     }
 }

@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import com.xixi.pojo.vo.Result;
 import com.xixi.service.SupplierFileService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +23,7 @@ public class SupplierFileController {
 
     @Operation(summary = "上传供应商附件", operationId = "uploadSupplierFile")
     @PostMapping("/uploadSupplierFile")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPPLIER')")
     public Result uploadSupplierFile(@RequestParam(value = "supplierId", required = false) Long supplierId,
                                      @RequestParam(value = "fileType", required = false) String fileType,
                                      @RequestParam(value = "remark", required = false) String remark,

@@ -1,0 +1,45 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xixi.mapper.InventoryLogMapper">
+    <select id="getInventoryLogPage" resultType="com.xixi.pojo.vo.inventory.InventoryLogPageVO">
+        select il.id,
+               il.log_no,
+               il.inventory_id,
+               il.material_id,
+               m.code as materialCode,
+               m.name as materialName,
+               il.warehouse_id,
+               w.name as warehouseName,
+               il.biz_type,
+               il.biz_id,
+               il.before_number,
+               il.change_number,
+               il.after_number,
+               il.operator_id,
+               il.operator_name,
+               il.remark,
+               il.operate_time
+        from inventory_log il
+        left join material m on il.material_id = m.id and m.deleted = 0
+        left join warehouse w on il.warehouse_id = w.id and w.deleted = 0
+        <where>
+            <if test="q.inventoryId != null">
+                and il.inventory_id = #{q.inventoryId}
+            </if>
+            <if test="q.materialId != null">
+                and il.material_id = #{q.materialId}
+            </if>
+            <if test="q.warehouseId != null">
+                and il.warehouse_id = #{q.warehouseId}
+            </if>
+            <if test="q.bizType != null and q.bizType != ''">
+                and il.biz_type = #{q.bizType}
+            </if>
+            <if test="q.beginTime != null and q.endTime != null">
+                and il.operate_time between #{q.beginTime} and #{q.endTime}
+            </if>
+        </where>
+        order by il.operate_time desc, il.id desc
+    </select>
+</mapper>

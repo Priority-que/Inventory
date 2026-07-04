@@ -32,6 +32,17 @@ public class SecurityUtils {
         }
         return loginUser.getUsername();
     }
+    public static String getCurrentName(){
+        LoginUser loginUser = getCurrentLoginUser();
+        if(loginUser == null){
+            return null;
+        }
+        String name = loginUser.getName();
+        if(name == null || name.isBlank()){
+            return loginUser.getUsername();
+        }
+        return name;
+    }
     public static List<String> getCurrentUserRoleCodes(){
         LoginUser loginUser = getCurrentLoginUser();
         if(loginUser == null){

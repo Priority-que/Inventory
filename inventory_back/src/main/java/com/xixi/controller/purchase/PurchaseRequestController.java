@@ -11,6 +11,7 @@ import com.xixi.pojo.vo.purchase.PurchaseRequestPageVO;
 import com.xixi.pojo.vo.purchase.PurchaseRequestVO;
 import com.xixi.service.PurchaseRequestService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,54 +24,64 @@ public class PurchaseRequestController {
     private final PurchaseRequestService purchaseRequestService;
     @Operation(summary = "分页查询采购申请", operationId = "getPurchaseRequestPage")
     @GetMapping("/getPurchaseRequestPage")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASER','PURCHASE_MANAGER')")
     public Result getPurchaseRequestPage(PurchaseRequestQuery purchaseRequestQuery) {
         IPage<PurchaseRequestPageVO> page = purchaseRequestService.getPurchaseRequestPage(purchaseRequestQuery);
         return Result.success(page);
     }
     @Operation(summary = "分页查询我的已通过采购申请", operationId = "getMyApprovedPurchaseRequestPage")
     @GetMapping("/getMyApprovedPurchaseRequestPage")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASER')")
     public Result getMyApprovedPurchaseRequestPage(PurchaseRequestQuery purchaseRequestQuery) {
         IPage<PurchaseRequestPageVO> page = purchaseRequestService.getMyApprovedPurchaseRequestPage(purchaseRequestQuery);
         return Result.success(page);
     }
     @Operation(summary = "查询采购申请详情", operationId = "getPurchaseRequestById")
     @GetMapping("/getPurchaseRequestById/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASER','PURCHASE_MANAGER')")
     public Result getPurchaseRequestById(@PathVariable Long id) {
         PurchaseRequestVO purchaseRequestVO = purchaseRequestService.getPurchaseRequestById(id);
         return Result.success(purchaseRequestVO);
     }
     @Operation(summary = "新增采购申请", operationId = "addPurchaseRequest")
     @PostMapping("/addPurchaseRequest")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASER')")
     public Result addPurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO) {
         return purchaseRequestService.addPurchaseRequest(purchaseRequestDTO);
     }
     @Operation(summary = "更新采购申请", operationId = "updatePurchaseRequest")
     @PutMapping("/updatePurchaseRequest")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASER')")
     public Result updatePurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO) {
         return purchaseRequestService.updatePurchaseRequest(purchaseRequestDTO);
     }
     @Operation(summary = "提交采购申请", operationId = "submitPurchaseRequest")
     @PutMapping("/submitPurchaseRequest")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASER')")
     public Result submitPurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
         return purchaseRequestService.submitPurchaseRequest(purchaseRequestDTO);
     }
     @Operation(summary = "撤回采购申请", operationId = "withdrawPurchaseRequest")
     @PutMapping("/withdrawPurchaseRequest")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASER')")
     public Result withdrawPurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
         return purchaseRequestService.withdrawPurchaseRequest(purchaseRequestDTO);
     }
     @Operation(summary = "审批通过采购申请", operationId = "approvePurchaseRequest")
     @PutMapping("/approvePurchaseRequest")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASE_MANAGER')")
     public Result approvePurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
         return purchaseRequestService.approvePurchaseRequest(purchaseRequestDTO);
     }
     @Operation(summary = "驳回采购申请", operationId = "rejectPurchaseRequest")
     @PutMapping("/rejectPurchaseRequest")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASE_MANAGER')")
     public Result rejectPurchaseRequest(@RequestBody PurchaseRequestDTO purchaseRequestDTO){
         return purchaseRequestService.rejectPurchaseRequest(purchaseRequestDTO);
     }
     @Operation(summary = "批量删除采购申请", operationId = "deletePurchaseRequest")
     @DeleteMapping("/deletePurchaseRequest/{ids}")
+    @PreAuthorize("hasAnyRole('ADMIN','PURCHASER')")
     public Result deletePurchaseRequest(@PathVariable List<Integer> ids) {
         return purchaseRequestService.deletePurchaseRequest(ids);
     }

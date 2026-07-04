@@ -302,6 +302,9 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             bizType = "PURCHASE_REQUEST"
     )
     public Result approvePurchaseRequest(PurchaseRequestDTO purchaseRequestDTO) {
+        if (!hasCurrentRole("ADMIN") && !hasCurrentRole("PURCHASE_MANAGER")) {
+            return Result.error(403, "只有管理员或采购经理可以审批采购申请");
+        }
         if (purchaseRequestDTO.getId() == null) {
             return Result.error("采购申请单Id不能为空！");
         }
@@ -348,6 +351,9 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             bizType = "PURCHASE_REQUEST"
     )
     public Result rejectPurchaseRequest(PurchaseRequestDTO purchaseRequestDTO) {
+        if (!hasCurrentRole("ADMIN") && !hasCurrentRole("PURCHASE_MANAGER")) {
+            return Result.error(403, "只有管理员或采购经理可以审批采购申请");
+        }
         if (purchaseRequestDTO.getId() == null) {
             return Result.error("采购申请单Id不能为空！");
         }
@@ -391,6 +397,11 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 && roleCodes.contains("PURCHASER")
                 && !roleCodes.contains("ADMIN")
                 && !roleCodes.contains("PURCHASE_MANAGER");
+    }
+
+    private boolean hasCurrentRole(String roleCode) {
+        List<String> roleCodes = getCurrentUserRoleCodes();
+        return roleCodes != null && roleCodes.contains(roleCode);
     }
 
     private boolean isBlank(String value) {

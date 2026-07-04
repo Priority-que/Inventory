@@ -69,10 +69,27 @@
         for update
     </select>
 
+    <select id="lockById" resultType="com.xixi.entity.Inventory">
+        select id, material_id, warehouse_id, current_number, last_inbound_time,
+               remark, create_time, update_time, deleted
+        from inventory
+        where id = #{id}
+          and deleted = 0
+        for update
+    </select>
+
     <update id="increaseCurrentNumber">
         update inventory
         set current_number = current_number + #{changeNumber},
             last_inbound_time = #{lastInboundTime}
+        where id = #{id}
+          and deleted = 0
+    </update>
+
+    <update id="adjustCurrentNumber">
+        update inventory
+        set current_number = current_number + #{changeNumber},
+            update_time = now()
         where id = #{id}
           and deleted = 0
     </update>

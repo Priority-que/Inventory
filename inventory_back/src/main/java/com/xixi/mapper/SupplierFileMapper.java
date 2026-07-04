@@ -11,4 +11,6 @@ public interface SupplierFileMapper extends BaseMapper<SupplierFile> {
     Integer getMaxFileRound(@Param("supplierId") Long supplierId,@Param("fileType")String fileType);
 
     Integer disableActiveFile(@Param("supplierId")Long supplierId,@Param("fileType")String fileType);
+
+    Integer countActiveFile(@Param("supplierId") Long supplierId);
 }

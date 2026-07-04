@@ -27,5 +27,8 @@ public class SupplierPageQuery {
 
     @Schema(description = "供应商状态，PENDING待审核，REJECTED驳回，ACTIVE启用，DISABLED停用")
     private String status;
+
+    @Schema(description = "绑定用户ID，后端按当前供应商账号自动填充")
+    private Long userId;
 }
 
