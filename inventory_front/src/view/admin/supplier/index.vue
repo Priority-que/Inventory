@@ -83,7 +83,7 @@ const currentFile = ref<File | null>(null)
 const uploadForm = reactive({
   supplierId: 0,
   supplierName: '',
-  fileType: 'business_license',
+  fileType: 'BUSINESS_LICENSE',
   remark: '',
 })
 
@@ -245,7 +245,7 @@ function openUploadDialog(row: SupplierVO) {
   Object.assign(uploadForm, {
     supplierId: row.id,
     supplierName: row.name || '',
-    fileType: 'business_license',
+    fileType: 'BUSINESS_LICENSE',
     remark: '',
   })
   fileList.value = []

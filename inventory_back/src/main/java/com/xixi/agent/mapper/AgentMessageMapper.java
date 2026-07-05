@@ -11,4 +11,7 @@ import java.util.List;
 @Mapper
 public interface AgentMessageMapper extends BaseMapper<AgentMessage> {
     List<AgentMessageVO> getMessagesByThreadId(@Param("threadId") String threadId);
+
+    List<AgentMessageVO> getRecentConversationMessages(@Param("threadId") String threadId,
+                                                        @Param("limit") int limit);
 }

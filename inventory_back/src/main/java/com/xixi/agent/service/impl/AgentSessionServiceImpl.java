@@ -14,12 +14,7 @@ import com.xixi.agent.service.AgentSessionService;
 import com.xixi.agent.vo.AgentMessageVO;
 import com.xixi.agent.vo.AgentSessionDetailVO;
 import com.xixi.agent.vo.AgentSessionVO;
-import com.xixi.agent.vo.OrderDiagnosisVO;
-import com.xixi.agent.vo.SupplierScoreVO;
-import com.xixi.agent.vo.WarningScanVO;
 import com.xixi.agent.vo.WorkflowAgentResponse;
-import com.xixi.agent.workflow.state.WorkflowEntity;
-import com.xixi.agent.workflow.state.WorkflowStateKeys;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
@@ -152,6 +147,19 @@ public class AgentSessionServiceImpl implements AgentSessionService {
     }
 
     @Override
+    public List<AgentMessageVO> getRecentConversationMessages(String threadId, Long userId, int limit) {
+        requireLogin(userId);
+        if (threadId == null || threadId.isBlank() || limit <= 0) {
+            return List.of();
+        }
+        AgentSession session = agentSessionMapper.getByThreadIdAndUserId(threadId, userId);
+        if (session == null) {
+            return List.of();
+        }
+        return agentMessageMapper.getRecentConversationMessages(threadId, Math.min(limit, 40));
+    }
+
+    @Override
     public AgentSessionDetailVO getSessionDetail(String threadId, Long userId) {
         requireLogin(userId);
         AgentSessionVO session = agentSessionMapper.getSessionVOByThreadIdAndUserId(threadId, userId);
@@ -177,25 +185,10 @@ public class AgentSessionServiceImpl implements AgentSessionService {
         }
 
         try {
-            Map<String, Object> raw = objectMapper.readValue(
+            return objectMapper.readValue(
                     state.getStateJson(),
                     new TypeReference<Map<String, Object>>() {}
             );
-
-            Map<String, Object> restored = new HashMap<>();
-
-            Object intent = raw.get(WorkflowStateKeys.INTENT);
-            if (intent != null) {
-                restored.put(WorkflowStateKeys.INTENT, intent.toString());
-            }
-
-            Object entityObj = raw.get(WorkflowStateKeys.ENTITY);
-            if (entityObj != null) {
-                WorkflowEntity entity = objectMapper.convertValue(entityObj, WorkflowEntity.class);
-                restored.put(WorkflowStateKeys.ENTITY, entity);
-            }
-
-            return restored;
         } catch (Exception e) {
             return new HashMap<>();
         }
@@ -223,20 +216,7 @@ public class AgentSessionServiceImpl implements AgentSessionService {
     }
 
     private void fillBizInfo(AgentResult result, WorkflowAgentResponse response) {
-        Object data = response.getData();
-        if (data instanceof OrderDiagnosisVO orderDiagnosisVO) {
-            result.setBizType("PURCHASE_ORDER");
-            result.setBizNo(orderDiagnosisVO.getOrderNo());
-            return;
-        }
-        if (data instanceof WarningScanVO) {
-            result.setBizType("WARNING_SCAN");
-            return;
-        }
-        if (data instanceof SupplierScoreVO supplierScoreVO) {
-            result.setBizType("SUPPLIER");
-            result.setBizId(supplierScoreVO.getSupplierId());
-        }
+        // 新 Java 工作流接入后，再按新的 data 结构填充业务关联字段。
     }
 
     private Map<String, Object> safeStateData(Map<String, Object> stateData) {

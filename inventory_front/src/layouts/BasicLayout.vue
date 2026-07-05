@@ -106,7 +106,7 @@ const roleMenuMap: Record<string, MenuGroup[]> = {
       ],
     },
     {
-      title: '智能诊断',
+      title: '智能助手',
       items: [
         { title: 'AI 智能助手', path: '/assistant', icon: 'ChatDotRound' },
       ],

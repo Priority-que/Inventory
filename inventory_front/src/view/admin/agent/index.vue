@@ -12,7 +12,7 @@ import {
   type AgentSession,
   type WorkflowAgentResponse,
 } from '@/api/agent'
-import { formatDateTime, formatEmpty } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 
 type ChatRole = 'user' | 'assistant'
 
@@ -28,17 +28,6 @@ interface ChatMessage {
   thinkingContent?: string
   thinkingStatus?: string
   answerStarted?: boolean
-}
-
-interface WarningItem {
-  riskLevel?: string
-  bizType?: string
-  bizId?: number
-  bizNo?: string
-  problem?: string
-  reason?: string
-  suggestOwner?: string
-  suggestAction?: string
 }
 
 const route = useRoute()
@@ -60,19 +49,19 @@ marked.setOptions({
 
 const allQuickActions = [
   {
-    title: '扫描采购风险',
-    icon: 'Warning',
-    prompt: '请扫描最近 7 天采购执行风险，按高风险和中风险汇总，并给出建议处理角色和下一步动作。',
+    title: '查看我的待办',
+    icon: 'List',
+    prompt: '请查看我当前有哪些业务待办，并按优先处理顺序给出建议。',
   },
   {
-    title: '诊断采购订单',
+    title: '查询采购订单',
     icon: 'Search',
-    prompt: '请帮我诊断采购订单 PO202604211230001001 卡在哪个环节，并说明阻塞原因和下一步处理建议。',
+    prompt: '请查询采购订单 PO202604211230001001 的当前状态，并说明下一步应该怎么处理。',
   },
   {
-    title: '评估供应商履约',
-    icon: 'TrendCharts',
-    prompt: '请对供应商 1 最近 30 天的履约表现进行评分，说明确认率、到货完成率、入库完成率和合作建议。',
+    title: '查看库存预警',
+    icon: 'Warning',
+    prompt: '请查看当前低库存物料，并说明需要优先关注哪些库存预警。',
   },
   {
     title: '询问业务规则',
@@ -82,37 +71,8 @@ const allQuickActions = [
 ]
 
 const pageTitle = computed(() => String(route.meta.title || 'AI 智能助手'))
-const pageDesc = computed(() => {
-  if (route.path.includes('order-diagnosis')) {
-    return '复用统一 Workflow Agent，对采购订单做阶段诊断、阻塞定位和处理建议。'
-  }
-
-  if (route.path.includes('warning')) {
-    return '复用统一 Workflow Agent，扫描采购执行风险并输出汇总、重点风险和建议动作。'
-  }
-
-  if (route.path.includes('supplier-score')) {
-    return '复用统一 Workflow Agent，对供应商履约进行评分并返回指标拆解和合作建议。'
-  }
-
-  return '可以自然聊天，也可以处理库存、采购、供应商和业务规则相关问题'
-})
-
-const quickActions = computed(() => {
-  if (route.path.includes('order-diagnosis')) {
-    return allQuickActions.filter((item) => item.title === '诊断采购订单')
-  }
-
-  if (route.path.includes('warning')) {
-    return allQuickActions.filter((item) => item.title === '扫描采购风险')
-  }
-
-  if (route.path.includes('supplier-score')) {
-    return allQuickActions.filter((item) => item.title === '评估供应商履约')
-  }
-
-  return allQuickActions
-})
+const pageDesc = '可以自然聊天，也可以处理库存、采购、供应商和业务规则相关问题'
+const quickActions = allQuickActions
 
 const hasMessages = computed(() => messages.value.length > 0)
 const currentSession = computed(() => sessionList.value.find((item) => item.threadId === threadId.value))
@@ -164,44 +124,8 @@ function asRecord(value: unknown) {
   return null
 }
 
-function getBusinessRecord(data: unknown) {
+function getRecordString(data: unknown, key: string) {
   const record = asRecord(data)
-  if (!record) {
-    return null
-  }
-
-  const evidence = asRecord(record.evidence)
-  if (!evidence) {
-    return record
-  }
-
-  const facts = asRecord(evidence.facts) || {}
-  const result: Record<string, unknown> = {
-    ...record,
-    ...facts,
-  }
-
-  if (typeof evidence.summary === 'string') {
-    result.summary = evidence.summary
-  }
-
-  if (Array.isArray(evidence.items)) {
-    result.items = evidence.items
-  }
-
-  if (Array.isArray(evidence.sourceTools)) {
-    result.sourceTools = evidence.sourceTools
-  }
-
-  if (Array.isArray(evidence.errors)) {
-    result.errors = evidence.errors
-  }
-
-  return result
-}
-
-function getString(data: unknown, key: string) {
-  const record = getBusinessRecord(data)
   const value = record?.[key]
 
   if (typeof value === 'string' || typeof value === 'number') {
@@ -211,107 +135,20 @@ function getString(data: unknown, key: string) {
   return ''
 }
 
-function getNumber(data: unknown, key: string) {
-  const record = getBusinessRecord(data)
-  const value = record?.[key]
-
-  if (typeof value === 'number') {
-    return value
-  }
-
-  if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
-    return Number(value)
-  }
-
-  return undefined
-}
-
-function getEvidence(data: unknown) {
-  const record = getBusinessRecord(data)
-  const evidence = record?.evidence
-
-  if (Array.isArray(evidence)) {
-    return evidence.map((item) => String(item))
-  }
-
-  return []
-}
-
-function getWarningItems(data: unknown) {
-  const record = getBusinessRecord(data)
-  const items = Array.isArray(record?.items) ? record?.items : record?.topItems
-
-  if (!Array.isArray(items)) {
-    return []
-  }
-
-  return items.map((item) => asRecord(item) || {}) as WarningItem[]
-}
-
-function getNextActionText(data: unknown) {
-  const record = getBusinessRecord(data)
-  const nextAction = asRecord(record?.nextAction)
-
-  return getString(nextAction, 'actionText') || getString(record, 'suggestAction') || getString(record, 'nextAction')
-}
-
-function getResponsibilityText(data: unknown) {
-  const record = getBusinessRecord(data)
-  const responsibility = asRecord(record?.responsibility)
-
-  return getString(responsibility, 'ownerRoleName') || getString(record, 'suggestOwner')
-}
-
 function intentLabel(intent?: string) {
   const labelMap: Record<string, string> = {
-    ORDER_DIAGNOSIS: '订单诊断',
-    WARNING_SCAN: '风险扫描',
-    SUPPLIER_SCORE: '供应商评分',
-    KNOWLEDGE_QA: '知识问答',
-    UNKNOWN: '普通对话',
+    BUSINESS_TODO: '业务待办',
+    BUSINESS_QA: '业务问答',
+    BUSINESS_KNOWLEDGE_QA: '知识问答',
+    GENERAL_CHAT: '普通聊天',
+    ASK_CLARIFY: '需要补充',
   }
 
   return intent ? labelMap[intent] || intent : '普通对话'
 }
 
-function riskTagType(level?: string) {
-  if (level === 'HIGH') {
-    return 'danger'
-  }
-
-  if (level === 'MEDIUM') {
-    return 'warning'
-  }
-
-  return 'info'
-}
-
-function riskText(level?: string) {
-  if (level === 'HIGH') {
-    return '高风险'
-  }
-
-  if (level === 'MEDIUM') {
-    return '中风险'
-  }
-
-  return level || '-'
-}
-
-function levelTagType(level?: string) {
-  if (level === '优秀' || level === '良好') {
-    return 'success'
-  }
-
-  if (level === '一般') {
-    return 'warning'
-  }
-
-  return 'info'
-}
-
 function streamThinkingStatus(payload: unknown) {
-  const stage = getString(payload, 'stage')
+  const stage = getRecordString(payload, 'stage')
   const stageMap: Record<string, string> = {
     AUTH: '开始思考',
     UNDERSTAND: '正在理解你的意思',
@@ -762,66 +599,6 @@ onBeforeUnmount(() => {
                 <p v-else class="message-text">{{ message.content }}</p>
               </div>
 
-              <div
-                v-if="message.role === 'assistant' && !message.pending && !message.streaming && message.data"
-                class="structured-result"
-              >
-                <div v-if="message.intent === 'WARNING_SCAN'" class="result-card">
-                  <div class="result-card-header">
-                    <strong>风险扫描结果</strong>
-                    <span>{{ formatEmpty(getString(message.data, 'summary')) }}</span>
-                  </div>
-                  <el-table :data="getWarningItems(message.data)" size="small" empty-text="暂无风险项">
-                    <el-table-column label="等级" width="88">
-                      <template #default="{ row }">
-                        <el-tag class="status-tag" :type="riskTagType(row.riskLevel)" size="small" effect="plain">
-                          {{ riskText(row.riskLevel) }}
-                        </el-tag>
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="bizNo" label="业务编号" min-width="160" />
-                    <el-table-column prop="problem" label="风险问题" min-width="180" show-overflow-tooltip />
-                    <el-table-column prop="suggestOwner" label="处理角色" min-width="110" />
-                    <el-table-column prop="suggestAction" label="建议动作" min-width="220" show-overflow-tooltip />
-                  </el-table>
-                </div>
-
-                <div v-else-if="message.intent === 'SUPPLIER_SCORE'" class="result-card">
-                  <div class="score-row">
-                    <el-statistic title="综合评分" :value="getNumber(message.data, 'score') || 0" />
-                    <el-tag
-                      class="status-tag"
-                      :type="levelTagType(getString(message.data, 'level'))"
-                      size="large"
-                      effect="plain"
-                    >
-                      {{ formatEmpty(getString(message.data, 'level')) }}
-                    </el-tag>
-                  </div>
-                  <el-descriptions :column="2" border>
-                    <el-descriptions-item label="供应商">{{ formatEmpty(getString(message.data, 'supplierName')) }}</el-descriptions-item>
-                    <el-descriptions-item label="确认率">{{ formatEmpty(getString(message.data, 'confirmRate')) }}</el-descriptions-item>
-                    <el-descriptions-item label="到货完成率">{{ formatEmpty(getString(message.data, 'arrivalCompletionRate')) }}</el-descriptions-item>
-                    <el-descriptions-item label="入库完成率">{{ formatEmpty(getString(message.data, 'inboundCompletionRate')) }}</el-descriptions-item>
-                    <el-descriptions-item label="异常到货率">{{ formatEmpty(getString(message.data, 'abnormalArrivalRate')) }}</el-descriptions-item>
-                    <el-descriptions-item label="合作建议">{{ formatEmpty(getString(message.data, 'suggestion')) }}</el-descriptions-item>
-                  </el-descriptions>
-                </div>
-
-                <div v-else-if="message.intent === 'ORDER_DIAGNOSIS'" class="result-card">
-                  <el-descriptions :column="1" border>
-                    <el-descriptions-item label="订单号">{{ formatEmpty(getString(message.data, 'orderNo')) }}</el-descriptions-item>
-                    <el-descriptions-item label="当前阶段">{{ formatEmpty(getString(message.data, 'currentStage')) }}</el-descriptions-item>
-                    <el-descriptions-item label="阻塞原因">{{ formatEmpty(getString(message.data, 'blockReason')) }}</el-descriptions-item>
-                    <el-descriptions-item label="处理角色">{{ formatEmpty(getResponsibilityText(message.data)) }}</el-descriptions-item>
-                    <el-descriptions-item label="建议动作">{{ formatEmpty(getNextActionText(message.data)) }}</el-descriptions-item>
-                  </el-descriptions>
-                  <ul v-if="getEvidence(message.data).length" class="evidence-list">
-                    <li v-for="item in getEvidence(message.data)" :key="item">{{ item }}</li>
-                  </ul>
-                </div>
-              </div>
-
               <div v-if="message.role === 'assistant' && !message.pending && !message.streaming" class="message-actions">
                 <el-button link size="small" title="复制回答" @click="copyAnswer(message.content)">
                   <el-icon><CopyDocument /></el-icon>
@@ -1223,48 +1000,6 @@ onBeforeUnmount(() => {
 
 .typing span:nth-child(3) {
   animation-delay: 0.3s;
-}
-
-.structured-result {
-  margin-top: 10px;
-}
-
-.result-card {
-  padding: 14px;
-  background: #ffffff;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-}
-
-.result-card-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-
-.result-card-header strong {
-  color: var(--text-main);
-  font-size: 15px;
-}
-
-.result-card-header span {
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.score-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.evidence-list {
-  margin: 12px 0 0;
-  padding-left: 20px;
-  color: #4b5563;
-  line-height: 1.8;
 }
 
 .message-actions {
@@ -1728,10 +1463,11 @@ onBeforeUnmount(() => {
   font-weight: 500;
   line-height: 1.9;
   letter-spacing: 0;
+  white-space: normal;
 }
 
 .markdown-body :deep(p) {
-  margin: 0 0 14px;
+  margin: 0 0 6px;
 }
 
 .markdown-body :deep(p:last-child) {
@@ -1744,12 +1480,12 @@ onBeforeUnmount(() => {
 
 .markdown-body :deep(ul),
 .markdown-body :deep(ol) {
-  margin: 10px 0 14px;
+  margin: 4px 0 6px;
   padding-left: 24px;
 }
 
 .markdown-body :deep(li) {
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 .markdown-body :deep(code) {
@@ -1841,35 +1577,6 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   background: #777777;
   animation: typing 1.1s infinite ease-in-out;
-}
-
-.structured-result {
-  width: min(760px, 100%);
-  margin-top: 14px;
-}
-
-.result-card {
-  padding: 16px;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-}
-
-.result-card-header strong {
-  color: #111111;
-  font-size: 14px;
-}
-
-.result-card-header span {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.evidence-list {
-  margin: 12px 0 0;
-  padding-left: 20px;
-  color: #4b5563;
-  line-height: 1.8;
 }
 
 .message-actions {

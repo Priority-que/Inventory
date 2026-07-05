@@ -31,6 +31,8 @@ public interface AgentSessionService {
 
     List<AgentMessageVO> getMessagesByThreadId(String threadId, Long userId);
 
+    List<AgentMessageVO> getRecentConversationMessages(String threadId, Long userId, int limit);
+
     AgentSessionDetailVO getSessionDetail(String threadId, Long userId);
 
     Map<String, Object> loadStateByThreadId(String threadId);

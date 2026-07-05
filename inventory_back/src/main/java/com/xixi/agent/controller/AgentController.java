@@ -1,79 +1,66 @@
 package com.xixi.agent.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import com.alibaba.cloud.ai.graph.RunnableConfig;
-import com.alibaba.cloud.ai.graph.agent.ReactAgent;
-import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
-import com.xixi.agent.dto.*;
-import com.xixi.agent.service.ProcessDiagnosisAgentService;
-import com.xixi.agent.service.PythonWorkflowProxyService;
-import com.xixi.agent.service.ProcurementWarningAgentService;
-import com.xixi.agent.service.SupplierPerformanceAgentService;
+import com.xixi.agent.dto.WorkflowAgentRequest;
+import com.xixi.agent.model.AgentWorkflowEvent;
+import com.xixi.agent.service.AgentWorkflowService;
+import com.xixi.agent.vo.WorkflowAgentResponse;
 import com.xixi.pojo.vo.Result;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/agent")
 @RequiredArgsConstructor
 @Tag(name = "AI助手", description = "AI助手接口")
 public class AgentController {
-    private final ReactAgent inventoryChatAgent;
-    private final ProcessDiagnosisAgentService processDiagnosisAgentService;
-    private final ProcurementWarningAgentService procurementWarningAgentService;
-    private final SupplierPerformanceAgentService supplierPerformanceAgentService;
-    private final PythonWorkflowProxyService pythonWorkflowProxyService;
+    private final AgentWorkflowService agentWorkflowService;
+    private final ObjectMapper objectMapper;
 
-    @Operation(summary = "AI对话", operationId = "chat")
-    @PostMapping("/chat")
-    public Result chat(@RequestBody AgentChatRequest agentChatRequest) throws GraphRunnerException {
-        String threadId = agentChatRequest.getThreadId();
-        if(threadId == null || threadId.isEmpty()){
-            threadId = "default - thread";
-        }
-        RunnableConfig config = RunnableConfig.builder()
-                .threadId(threadId)
-                .build();
-        AssistantMessage response = inventoryChatAgent.call(agentChatRequest.getMessage(),config);
-        return Result.success(response.getText());
-    }
-    @Operation(summary = "诊断采购订单", operationId = "diagnoseOrder")
-    @PostMapping("/diagnose/order")
-    public Result diagnoseOrder(@RequestBody OrderDiagnosisRequest request) {
-        return Result.success(processDiagnosisAgentService.diagnose(request));
-    }
-    @Operation(summary = "扫描采购预警", operationId = "scanWarnings")
-    @PostMapping("/warning/scan")
-    public Result scanWarnings(@RequestBody WarningScanRequest request) {
-        return Result.success(procurementWarningAgentService.scanWarnings(request));
-    }
-    @Operation(summary = "供应商评分", operationId = "scoreSupplier")
-    @PostMapping("/supplier/score")
-    public Result scoreSupplier(@RequestBody SupplierScoreRequest request) {
-        return Result.success(supplierPerformanceAgentService.scoreSupplier(request));
-    }
-    @Operation(summary = "执行工作流代理", operationId = "execute")
+    @Operation(summary = "执行Java Agent Loop工作流", operationId = "execute")
     @PostMapping("/workflow/execute")
-    public ResponseEntity<String> execute(@RequestBody WorkflowAgentRequest request,
-                                          @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
-                                          String authorization) {
-        return pythonWorkflowProxyService.executeWorkflow(request, authorization);
+    public Result execute(@RequestBody WorkflowAgentRequest request) {
+        return Result.success(agentWorkflowService.execute(request, null));
     }
 
-    @Operation(summary = "流式执行工作流代理", operationId = "stream")
+    @Operation(summary = "流式执行Java Agent Loop工作流", operationId = "stream")
     @PostMapping(value = "/workflow/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public void stream(@RequestBody WorkflowAgentRequest request,
-                       @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
-                       String authorization,
-                       HttpServletResponse response) {
-        pythonWorkflowProxyService.streamWorkflow(request, authorization, response);
+                       HttpServletResponse response) throws IOException {
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
+
+        PrintWriter writer = response.getWriter();
+        WorkflowAgentResponse result = agentWorkflowService.execute(request, event -> writeEventQuietly(writer, event));
+        writeEvent(writer, "done", result);
+        writer.flush();
+    }
+
+    private void writeEvent(PrintWriter writer, String eventName, Object payload) throws IOException {
+        writer.write("event: ");
+        writer.write(eventName);
+        writer.write("\n");
+        writer.write("data: ");
+        writer.write(objectMapper.writeValueAsString(payload));
+        writer.write("\n\n");
+    }
+
+    private void writeEventQuietly(PrintWriter writer, AgentWorkflowEvent event) {
+        try {
+            writeEvent(writer, event.getEventName(), event.getPayload());
+            writer.flush();
+        } catch (IOException ex) {
+            throw new IllegalStateException("写入SSE事件失败", ex);
+        }
     }
 }
 

@@ -20,15 +20,19 @@ spring:
   ai:
     dashscope:
       api-key: ${AI_DASHSCOPE_API_KEY}
+      chat:
+        enabled: true
+        options:
+          model: deepseek-v4-pro
       embedding:
         enabled: true
         options:
           model: text-embedding-v3
     vectorstore:
       redis:
-        enabled: false
-        index-name: "ikun-rag-index:"
-        prefix: "ikun-rag-prefix:"
+        enabled: true
+        index-name: "inventory-agent-rag-index"
+        prefix: "inventory:agent:rag:"
         initialize-schema: true
 
 security:
@@ -47,7 +51,3 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
-
-python-agent:
-  base-url: http://127.0.0.1:8000
-  timeout-ms: 60000

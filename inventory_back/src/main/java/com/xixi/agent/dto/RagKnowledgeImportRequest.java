@@ -23,7 +23,7 @@ public class RagKnowledgeImportRequest {
     @Schema(description = "文档类型")
     private String docType;
     /*
-    * 适用意图，COMMON / ORDER_DIAGNOSIS / WARNING_SCAN / SUPPLIER_SCORE / KNOWLEDGE_QA
+    * 适用意图，COMMON / BUSINESS_TODO / BUSINESS_QA / BUSINESS_KNOWLEDGE_QA
     * */
     @Schema(description = "业务意图")
     private String bizIntent;

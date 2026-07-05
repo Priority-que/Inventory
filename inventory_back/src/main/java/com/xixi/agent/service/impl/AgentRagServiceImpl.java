@@ -31,6 +31,7 @@ public class AgentRagServiceImpl implements AgentRagService {
     private static final int CHUNK_OVERLAP = 80;
     private static final int DEFAULT_TOP_K = 4;
     private static final int MAX_TOP_K = 10;
+    private static final int EMBEDDING_BATCH_SIZE = 10;
     private static final double DEFAULT_SIMILARITY_THRESHOLD = 0.45D;
     private static final Pattern DOC_CODE_PATTERN = Pattern.compile("^[A-Z0-9_\\-]{3,64}$");
 
@@ -73,7 +74,7 @@ public class AgentRagServiceImpl implements AgentRagService {
             documents.add(document);
         }
 
-        vectorStore.add(documents);
+        addDocumentsInBatches(vectorStore, documents);
 
         RagImportResultVO result = new RagImportResultVO();
         result.setDocCode(docCode);
@@ -205,6 +206,13 @@ public class AgentRagServiceImpl implements AgentRagService {
         vo.setSourcePath(getMetadata(document, "sourcePath"));
         vo.setChunkNo(getIntegerMetadata(document, "chunkNo"));
         return vo;
+    }
+
+    private void addDocumentsInBatches(VectorStore vectorStore, List<Document> documents) {
+        for (int start = 0; start < documents.size(); start += EMBEDDING_BATCH_SIZE) {
+            int end = Math.min(start + EMBEDDING_BATCH_SIZE, documents.size());
+            vectorStore.add(documents.subList(start, end));
+        }
     }
 
     private String getMetadata(Document document, String key) {

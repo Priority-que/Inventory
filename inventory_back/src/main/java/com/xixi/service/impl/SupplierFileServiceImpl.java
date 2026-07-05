@@ -42,10 +42,10 @@ public class SupplierFileServiceImpl implements SupplierFileService {
         if (fileType == null || fileType.isBlank()) {
             return Result.error("文件类型不能为空！");
         }
-        if (!"business_license".equals(fileType)
-                && !"bank_license".equals(fileType)
-                && !"contract".equals(fileType)
-                && !"other".equals(fileType)) {
+        if (!"BUSINESS_LICENSE".equals(fileType)
+                && !"QUALIFICATION".equals(fileType)
+                && !"BANK_LICENSE".equals(fileType)
+                && !"OTHER".equals(fileType)) {
             return Result.error("文件类型不合法！");
         }
         if (file == null || file.isEmpty()) {

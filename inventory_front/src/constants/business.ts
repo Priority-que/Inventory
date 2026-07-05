@@ -20,18 +20,17 @@ export const roleOptions = [
 ] as const
 
 export const fileTypeOptions = [
-  { label: '营业执照', value: 'business_license' },
-  { label: '银行开户许可证', value: 'bank_license' },
-  { label: '合同文件', value: 'contract' },
-  { label: '其他', value: 'other' },
+  { label: '营业执照', value: 'BUSINESS_LICENSE' },
+  { label: '资质文件', value: 'QUALIFICATION' },
+  { label: '银行开户许可证', value: 'BANK_LICENSE' },
+  { label: '其他', value: 'OTHER' },
 ] as const
 
 export const intentOptions = [
   { label: '通用知识', value: 'COMMON' },
-  { label: '订单诊断', value: 'ORDER_DIAGNOSIS' },
-  { label: '风险预警', value: 'WARNING_SCAN' },
-  { label: '供应商评分', value: 'SUPPLIER_SCORE' },
-  { label: '知识问答', value: 'KNOWLEDGE_QA' },
+  { label: '业务待办', value: 'BUSINESS_TODO' },
+  { label: '业务问答', value: 'BUSINESS_QA' },
+  { label: '业务知识问答', value: 'BUSINESS_KNOWLEDGE_QA' },
 ] as const
 
 export const purchaseRequestStatusOptions = [
@@ -71,14 +70,6 @@ export const inboundStatusOptions = [
   { label: '已完成入库', value: 'COMPLETED', type: 'success' },
   { label: '已取消', value: 'CANCELLED', type: 'info' },
   { label: '异常', value: 'ABNORMAL', type: 'danger' },
-] as const
-
-export const workflowIntentOptions = [
-  { label: '订单诊断', value: 'ORDER_DIAGNOSIS' },
-  { label: '风险预警', value: 'WARNING_SCAN' },
-  { label: '供应商评分', value: 'SUPPLIER_SCORE' },
-  { label: '业务知识问答', value: 'KNOWLEDGE_QA' },
-  { label: '未识别', value: 'UNKNOWN' },
 ] as const
 
 export const riskLevelOptions = [
