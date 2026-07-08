@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { useRoute } from 'vue-router'
 import {
   adjustInventoryApi,
   getInventoryLogPageApi,
@@ -11,6 +12,7 @@ import {
 import { formatDateTime, formatEmpty } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 
+const route = useRoute()
 const authStore = useAuthStore()
 const loading = ref(false)
 const tableData = ref<InventoryPageVO[]>([])
@@ -36,6 +38,19 @@ const query = reactive({
   materialName: '',
   warehouseName: '',
   stockStatus: '',
+})
+
+const inventoryEmptyText = computed(() => {
+  if (query.stockStatus === 'LOW') {
+    return '暂无低库存预警'
+  }
+  if (query.stockStatus === 'OVER') {
+    return '暂无超储预警'
+  }
+  if (query.stockStatus === 'NORMAL') {
+    return '暂无正常库存记录'
+  }
+  return '暂无库存台账'
 })
 
 const logQuery = reactive({
@@ -147,6 +162,12 @@ async function loadLogs() {
   }
 }
 
+function applyRouteQuery() {
+  if (typeof route.query.stockStatus === 'string') {
+    query.stockStatus = route.query.stockStatus
+  }
+}
+
 function handleLogSizeChange(size: number) {
   logQuery.pageSize = size
   logQuery.pageNum = 1
@@ -183,7 +204,7 @@ async function submitAdjust() {
   adjustLoading.value = true
   try {
     await adjustInventoryApi({ ...adjustForm })
-    ElMessage.success('库存调整成功')
+    ElMessage.success('库存调整已完成，库存台账和库存流水已更新')
     adjustDialogVisible.value = false
     await loadData()
     if (detailVisible.value && logQuery.inventoryId === adjustForm.inventoryId) {
@@ -194,7 +215,10 @@ async function submitAdjust() {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  applyRouteQuery()
+  loadData()
+})
 </script>
 
 <template>
@@ -246,7 +270,7 @@ onMounted(loadData)
       </div>
 
       <div class="table-wrap">
-        <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed">
+        <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed" :empty-text="inventoryEmptyText">
           <el-table-column prop="materialCode" label="物料编码" min-width="130" show-overflow-tooltip />
           <el-table-column prop="materialName" label="物料名称" min-width="150" show-overflow-tooltip />
           <el-table-column prop="specification" label="规格型号" min-width="140" show-overflow-tooltip />
@@ -344,7 +368,7 @@ onMounted(loadData)
         </el-tab-pane>
 
         <el-tab-pane label="库存流水" name="logs">
-          <el-table v-loading="logLoading" :data="logRows" row-key="id" table-layout="fixed">
+          <el-table v-loading="logLoading" :data="logRows" row-key="id" table-layout="fixed" empty-text="暂无库存流水">
             <el-table-column prop="logNo" label="流水号" min-width="180" show-overflow-tooltip />
             <el-table-column label="业务类型" width="110">
               <template #default="{ row }">

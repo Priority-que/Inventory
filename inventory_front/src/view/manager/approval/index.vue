@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import {
   approvePurchaseRequestApi,
@@ -22,6 +23,7 @@ import {
 } from '@/constants/business'
 import { formatDate, formatDateTime, formatEmpty } from '@/utils/format'
 
+const route = useRoute()
 const loading = ref(false)
 const tableData = ref<PurchaseRequestPageVO[]>([])
 const total = ref(0)
@@ -60,6 +62,15 @@ const actionTitle = computed(() => (actionMode.value === 'approve' ? '审批通�
 const actionButtonText = computed(() => (actionMode.value === 'approve' ? '审批通过' : '确认驳回'))
 const actionTagType = computed(() => (actionMode.value === 'approve' ? 'success' : 'danger'))
 const canReviewDetail = computed(() => detail.value?.status === 'PENDING_APPROVAL')
+const emptyText = computed(() => {
+  if (query.status === 'PENDING_APPROVAL') {
+    return '暂无待审批采购申请'
+  }
+  if (query.status) {
+    return `暂无${getOptionLabel(purchaseRequestStatusOptions, query.status)}采购申请`
+  }
+  return '暂无采购申请'
+})
 
 const actionRules: FormRules<PurchaseRequestDTO> = {
   reviewNote: [{ required: true, message: '请输入审批意见', trigger: 'blur' }],
@@ -100,6 +111,13 @@ function handleReset() {
   })
   submitTimeRange.value = []
   loadData()
+}
+
+function applyRouteQuery() {
+  const status = route.query.status
+  if (typeof status === 'string') {
+    query.status = status
+  }
 }
 
 function canApproveRow(row: PurchaseRequestPageVO) {
@@ -149,13 +167,13 @@ async function submitAction() {
         id: actionForm.id,
         reviewNote: actionForm.reviewNote,
       })
-      ElMessage.success('采购申请已审批通过')
+      ElMessage.success('采购申请已审批通过，采购员可继续生成采购订单')
     } else {
       await rejectPurchaseRequestApi({
         id: actionForm.id,
         reviewNote: actionForm.reviewNote,
       })
-      ElMessage.success('采购申请已驳回')
+      ElMessage.success('采购申请已驳回，等待采购员修改后重新提交')
     }
 
     actionDialogVisible.value = false
@@ -202,7 +220,10 @@ function handleCurrentChange(page: number) {
   loadData()
 }
 
-onMounted(loadData)
+onMounted(() => {
+  applyRouteQuery()
+  loadData()
+})
 </script>
 
 <template>
@@ -259,7 +280,7 @@ onMounted(loadData)
       </div>
 
       <div class="table-wrap">
-        <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed">
+        <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed" :empty-text="emptyText">
           <el-table-column prop="id" label="ID" width="88" fixed="left" />
           <el-table-column prop="requestNo" label="申请单号" min-width="168" show-overflow-tooltip />
           <el-table-column prop="title" label="标题" min-width="188" show-overflow-tooltip />
@@ -399,7 +420,7 @@ onMounted(loadData)
                 </div>
               </div>
               <div class="table-wrap">
-                <el-table :data="detailItems" table-layout="fixed">
+                <el-table :data="detailItems" table-layout="fixed" empty-text="暂无采购申请明细">
                   <el-table-column prop="id" label="ID" width="88" />
                   <el-table-column prop="requestId" label="申请 ID" width="100" />
                   <el-table-column prop="requestNo" label="申请单号" min-width="150" show-overflow-tooltip />
@@ -435,7 +456,7 @@ onMounted(loadData)
                 </div>
               </div>
               <div class="table-wrap">
-                <el-table :data="reviewList" table-layout="fixed">
+                <el-table :data="reviewList" table-layout="fixed" empty-text="暂无审批记录">
                   <el-table-column prop="id" label="ID" width="88" />
                   <el-table-column prop="requestId" label="申请 ID" width="100" />
                   <el-table-column label="动作类型" min-width="120">

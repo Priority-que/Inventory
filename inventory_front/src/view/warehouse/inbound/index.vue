@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
   addInboundApi,
@@ -17,12 +17,28 @@ import { arrivalStatusOptions, getOptionLabel, getOptionType, inboundStatusOptio
 import { formatDate, formatDateTime, formatEmpty } from '@/utils/format'
 
 const route = useRoute()
+const router = useRouter()
 
 const canManage = computed(() => route.path.startsWith('/warehouse'))
 const pageTitle = computed(() => String(route.meta.title || '入库管理'))
 const pageSubtitle = computed(() =>
   canManage.value ? '生成入库单、确认入库并更新库存' : '查看入库单状态、仓库流转和明细结果',
 )
+const inboundEmptyText = computed(() => {
+  if (query.status === 'PENDING') {
+    return '暂无待确认入库单'
+  }
+  if (query.status === 'COMPLETED') {
+    return '暂无已完成入库单'
+  }
+  if (query.status === 'CANCELLED') {
+    return '暂无已取消入库单'
+  }
+  if (query.status === 'ABNORMAL') {
+    return '暂无异常入库单'
+  }
+  return '暂无入库单'
+})
 
 const loading = ref(false)
 const tableData = ref<InboundVO[]>([])
@@ -79,6 +95,12 @@ const formRules: FormRules<InboundDTO> = {
 function syncInboundTimeRange() {
   query.inboundTimeBegin = inboundTimeRange.value[0] || ''
   query.inboundTimeEnd = inboundTimeRange.value[1] || ''
+}
+
+function applyRouteQuery() {
+  if (typeof route.query.status === 'string') {
+    query.status = route.query.status
+  }
 }
 
 async function loadData() {
@@ -210,8 +232,9 @@ async function submitForm() {
   formLoading.value = true
   try {
     await addInboundApi({ ...inboundForm })
-    ElMessage.success('入库单已新增')
+    ElMessage.success('入库单已生成，等待仓库确认入库')
     dialogVisible.value = false
+    query.status = 'PENDING'
     loadData()
   } finally {
     formLoading.value = false
@@ -249,10 +272,20 @@ async function handleConfirm(row: InboundVO) {
   })
 
   await confirmInboundApi({ id: row.id })
-  ElMessage.success('入库单已确认')
+  ElMessage.success('入库单已确认，库存台账已更新')
   loadData()
   if (detail.value?.id === row.id) {
     loadDetail(row.id)
+  }
+  try {
+    await ElMessageBox.confirm('入库单已确认，库存台账和库存流水已更新。是否前往库存台账查看？', '下一步处理', {
+      type: 'success',
+      confirmButtonText: '查看库存台账',
+      cancelButtonText: '稍后查看',
+    })
+    router.push('/warehouse/inventory')
+  } catch {
+    // 用户选择稍后查看时保持当前页面
   }
 }
 
@@ -283,7 +316,13 @@ function handleCurrentChange(page: number) {
   loadData()
 }
 
-onMounted(loadData)
+onMounted(async () => {
+  applyRouteQuery()
+  await loadData()
+  if (canManage.value && route.query.todo === 'pendingArrival') {
+    openCreateDialog()
+  }
+})
 </script>
 
 <template>
@@ -295,7 +334,7 @@ onMounted(loadData)
       </div>
       <el-button v-if="canManage" type="primary" @click="openCreateDialog">
         <el-icon><Plus /></el-icon>
-        新增入库单
+        生成入库单
       </el-button>
     </div>
 
@@ -347,7 +386,7 @@ onMounted(loadData)
       </div>
 
       <div class="table-wrap">
-        <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed">
+        <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed" :empty-text="inboundEmptyText">
           <el-table-column prop="inboundNo" label="入库单号" min-width="160" fixed="left" show-overflow-tooltip />
           <el-table-column prop="arrivalNo" label="到货单号" min-width="160" show-overflow-tooltip />
           <el-table-column prop="orderNo" label="订单号" min-width="160" show-overflow-tooltip />
@@ -392,7 +431,7 @@ onMounted(loadData)
       </div>
     </section>
 
-    <el-dialog v-model="dialogVisible" title="新增入库单" width="1100px" @closed="resetForm">
+    <el-dialog v-model="dialogVisible" title="生成入库单" width="1100px" @closed="resetForm">
       <el-form ref="formRef" v-loading="formLoading" :model="inboundForm" :rules="formRules" label-width="108px">
         <div class="dialog-grid">
           <el-form-item label="到货单" prop="arrivalId">
@@ -443,7 +482,12 @@ onMounted(loadData)
           </div>
 
           <div class="table-wrap">
-            <el-table v-loading="previewLoading" :data="previewArrivalItems" table-layout="fixed">
+            <el-table
+              v-loading="previewLoading"
+              :data="previewArrivalItems"
+              table-layout="fixed"
+              empty-text="请选择到货单后加载到货明细"
+            >
               <el-table-column prop="materialCode" label="物料编码" min-width="140" show-overflow-tooltip />
               <el-table-column prop="materialName" label="物料名称" min-width="160" show-overflow-tooltip />
               <el-table-column prop="specification" label="规格型号" min-width="150" show-overflow-tooltip />
@@ -464,7 +508,7 @@ onMounted(loadData)
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="formLoading" @click="submitForm">保存</el-button>
+          <el-button type="primary" :loading="formLoading" @click="submitForm">生成入库单</el-button>
         </div>
       </template>
     </el-dialog>
@@ -509,7 +553,13 @@ onMounted(loadData)
         </el-form>
       </div>
       <div class="table-wrap">
-        <el-table v-loading="arrivalLoading" :data="arrivalRows" row-key="id" table-layout="fixed">
+        <el-table
+          v-loading="arrivalLoading"
+          :data="arrivalRows"
+          row-key="id"
+          table-layout="fixed"
+          empty-text="暂无可生成入库单的到货记录"
+        >
           <el-table-column prop="arrivalNo" label="到货单号" min-width="160" show-overflow-tooltip />
           <el-table-column prop="orderNo" label="订单号" min-width="160" show-overflow-tooltip />
           <el-table-column prop="warehouseName" label="仓库名称" min-width="140" show-overflow-tooltip />
@@ -575,7 +625,7 @@ onMounted(loadData)
             </div>
           </div>
           <div class="table-wrap">
-            <el-table :data="detailItems" table-layout="fixed">
+            <el-table :data="detailItems" table-layout="fixed" empty-text="暂无入库明细">
               <el-table-column prop="materialCode" label="物料编码" min-width="140" show-overflow-tooltip />
               <el-table-column prop="materialName" label="物料名称" min-width="160" show-overflow-tooltip />
               <el-table-column prop="specification" label="规格型号" min-width="150" show-overflow-tooltip />

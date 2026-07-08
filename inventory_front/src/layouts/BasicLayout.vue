@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { roleOptions } from '@/constants/business'
 
@@ -129,16 +129,38 @@ const currentRoleName = computed(() => {
   return roleOptions.find((item) => item.code === currentRole.value)?.label || currentRole.value
 })
 const menuGroups = computed(() => roleMenuMap[currentRole.value] || [])
+const isAsideCollapsed = ref(route.path !== '/home')
+const asideWidth = computed(() => (isAsideCollapsed.value ? '72px' : '220px'))
+
+function toggleAside() {
+  isAsideCollapsed.value = !isAsideCollapsed.value
+}
+
+watch(
+  () => route.path,
+  (path) => {
+    isAsideCollapsed.value = path !== '/home'
+  },
+)
 
 async function handleLogout() {
-  await ElMessageBox.confirm('确定要退出当前账号吗？', '退出登录', {
-    type: 'warning',
-    confirmButtonText: '退出',
-    cancelButtonText: '取消',
-  })
+  try {
+    await ElMessageBox.confirm('确定要退出当前账号吗？', '退出登录', {
+      type: 'warning',
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
 
-  await authStore.logout()
-  router.replace('/login')
+  try {
+    await authStore.logout()
+  } catch {
+    authStore.clearAuth()
+  }
+  ElMessage.success('已退出登录')
+  await router.replace('/login').catch(() => undefined)
 }
 
 async function handleUserCommand(command: string) {
@@ -155,7 +177,7 @@ async function handleUserCommand(command: string) {
 
 <template>
   <el-container class="layout">
-    <el-aside class="layout-aside" width="220px">
+    <el-aside class="layout-aside" :class="{ 'layout-aside--collapsed': isAsideCollapsed }" :width="asideWidth">
       <el-button class="layout-logo" text @click="router.push('/home')">
         <span class="logo-mark">
           <el-icon><DataAnalysis /></el-icon>
@@ -163,10 +185,26 @@ async function handleUserCommand(command: string) {
         <span class="logo-title">库存管理系统</span>
       </el-button>
 
+      <el-tooltip :content="isAsideCollapsed ? '展开菜单' : '收起菜单'" placement="right">
+        <el-button
+          class="aside-toggle"
+          circle
+          :aria-label="isAsideCollapsed ? '展开菜单' : '收起菜单'"
+          @click.stop="toggleAside"
+        >
+          <el-icon>
+            <Expand v-if="isAsideCollapsed" />
+            <Fold v-else />
+          </el-icon>
+        </el-button>
+      </el-tooltip>
+
       <div class="menu-scroll">
         <el-menu
           class="layout-menu"
           :default-active="route.path"
+          :collapse="isAsideCollapsed"
+          :collapse-transition="false"
           router
           background-color="#ffffff"
           text-color="#6b7280"
@@ -241,8 +279,10 @@ async function handleUserCommand(command: string) {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: visible;
   background: linear-gradient(180deg, #f9fbfe 0%, #ffffff 240px);
   border-right: 1px solid var(--border-color);
+  transition: width 0.2s ease;
 }
 
 .layout-logo.el-button {
@@ -288,6 +328,27 @@ async function handleUserCommand(command: string) {
   border-radius: 10px;
   font-size: 18px;
   box-shadow: 0 8px 20px rgba(15, 98, 254, 0.16);
+}
+
+.aside-toggle.el-button {
+  position: absolute;
+  top: 20px;
+  right: -14px;
+  z-index: 20;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.aside-toggle.el-button:hover,
+.aside-toggle.el-button:focus {
+  color: var(--primary-color);
+  border-color: #bfdbfe;
+  background: #f8fbff;
 }
 
 .menu-scroll {
@@ -415,6 +476,47 @@ async function handleUserCommand(command: string) {
   font-size: 12px;
 }
 
+.layout-aside--collapsed .layout-logo.el-button {
+  justify-content: center;
+  padding: 0;
+}
+
+.layout-aside--collapsed .layout-logo.el-button :deep(> span),
+.layout-aside--collapsed .user-button.el-button :deep(> span) {
+  justify-content: center;
+}
+
+.layout-aside--collapsed .logo-title,
+.layout-aside--collapsed .layout-menu :deep(.el-menu-item span),
+.layout-aside--collapsed .layout-menu :deep(.el-menu-item-group__title),
+.layout-aside--collapsed .user-meta,
+.layout-aside--collapsed .user-arrow {
+  display: none;
+}
+
+.layout-aside--collapsed .layout-menu {
+  width: 100%;
+}
+
+.layout-aside--collapsed .layout-menu :deep(.el-menu-item) {
+  justify-content: center;
+  margin: 4px 10px;
+  padding: 0 !important;
+}
+
+.layout-aside--collapsed .layout-menu :deep(.el-menu-item .el-icon) {
+  margin-right: 0;
+}
+
+.layout-aside--collapsed .layout-user {
+  padding: 14px 10px 18px;
+}
+
+.layout-aside--collapsed .user-button.el-button {
+  justify-content: center;
+  padding: 8px;
+}
+
 .layout-content {
   min-width: 0;
 }
@@ -426,7 +528,7 @@ async function handleUserCommand(command: string) {
 }
 
 @media (max-width: 960px) {
-  .layout-aside {
+  .layout-aside:not(.layout-aside--collapsed) {
     width: 72px !important;
   }
 

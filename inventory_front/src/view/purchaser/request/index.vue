@@ -119,6 +119,21 @@ const canManageItems = computed(() => {
   const status = detail.value?.status || ''
   return editableRequestStatuses.includes(status)
 })
+const requestEmptyText = computed(() => {
+  if (query.status === 'PENDING_APPROVAL') {
+    return '暂无待审批采购申请'
+  }
+  if (query.status === 'APPROVED') {
+    return '暂无已审批采购申请'
+  }
+  if (query.status === 'ORDER_CREATED') {
+    return '暂无已生成订单的采购申请'
+  }
+  if (query.status) {
+    return `暂无${getOptionLabel(purchaseRequestStatusOptions, query.status)}采购申请`
+  }
+  return '暂无采购申请'
+})
 
 function syncSubmitRange() {
   query.submitTimeBegin = submitTimeRange.value[0] || ''
@@ -228,7 +243,7 @@ async function submitForm() {
   try {
     if (dialogMode.value === 'create') {
       const requestId = await addPurchaseRequestApi({ ...requestForm })
-      ElMessage.success('采购申请已新增，请继续维护申请明细')
+      ElMessage.success('采购申请已保存，请继续维护申请明细')
       dialogVisible.value = false
       await loadData()
       if (requestId) {
@@ -239,7 +254,7 @@ async function submitForm() {
     } else {
       const requestId = requestForm.id
       await updatePurchaseRequestApi({ ...requestForm })
-      ElMessage.success('采购申请已更新')
+      ElMessage.success('采购申请已更新，可继续维护明细或提交审批')
       dialogVisible.value = false
       await loadData()
       if (detail.value?.id && requestId === detail.value.id) {
@@ -277,12 +292,12 @@ async function handleSubmit(row: PurchaseRequestPageVO) {
 
   await ElMessageBox.confirm(`确定提交采购申请 ${row.requestNo || row.id} 吗？`, '提交采购申请', {
     type: 'warning',
-    confirmButtonText: '提交',
+    confirmButtonText: '提交审批',
     cancelButtonText: '取消',
   })
 
   await submitPurchaseRequestApi({ id: row.id })
-  ElMessage.success('采购申请已提交')
+  ElMessage.success('采购申请已提交，等待采购经理审批')
   loadData()
 }
 
@@ -573,6 +588,7 @@ onMounted(async () => {
           :data="tableData"
           row-key="id"
           table-layout="fixed"
+          :empty-text="requestEmptyText"
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="46" fixed="left" />
@@ -615,7 +631,7 @@ onMounted(async () => {
                 <el-button link type="primary" @click="openDetail(row)">详情</el-button>
                 <el-button link type="primary" @click="openItems(row)">明细</el-button>
                 <el-button v-if="canEditRow(row)" link type="primary" @click="openEditDialog(row)">编辑</el-button>
-                <el-button v-if="canSubmitRow(row)" link type="primary" @click="handleSubmit(row)">提交</el-button>
+                <el-button v-if="canSubmitRow(row)" link type="primary" @click="handleSubmit(row)">提交审批</el-button>
                 <el-button v-if="canWithdrawRow(row)" link type="warning" @click="handleWithdraw(row)">撤回</el-button>
                 <el-popconfirm
                   v-if="canDeleteRow(row)"
@@ -688,7 +704,9 @@ onMounted(async () => {
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="formLoading" @click="submitForm">保存</el-button>
+          <el-button type="primary" :loading="formLoading" @click="submitForm">
+            {{ dialogMode === 'create' ? '保存采购申请' : '保存修改' }}
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -736,7 +754,7 @@ onMounted(async () => {
                 </el-button>
               </div>
               <div class="table-wrap">
-                <el-table :data="detailItems" table-layout="fixed">
+                <el-table :data="detailItems" table-layout="fixed" empty-text="暂无采购申请明细">
                   <el-table-column prop="requestNo" label="申请单号" min-width="150" show-overflow-tooltip />
                   <el-table-column prop="requestTitle" label="申请标题" min-width="180" show-overflow-tooltip />
                   <el-table-column prop="materialCode" label="物料编码" min-width="140" show-overflow-tooltip />
@@ -783,7 +801,7 @@ onMounted(async () => {
                 </div>
               </div>
               <div class="table-wrap">
-                <el-table :data="reviewList" table-layout="fixed">
+                <el-table :data="reviewList" table-layout="fixed" empty-text="暂无审批记录">
                   <el-table-column label="动作类型" min-width="120">
                     <template #default="{ row }">
                       <el-tag
@@ -847,7 +865,9 @@ onMounted(async () => {
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="itemDialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="itemFormLoading" @click="submitItemForm">保存</el-button>
+          <el-button type="primary" :loading="itemFormLoading" @click="submitItemForm">
+            {{ itemDialogMode === 'create' ? '保存申请明细' : '保存明细修改' }}
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -882,7 +902,13 @@ onMounted(async () => {
         </el-form>
       </div>
       <div class="table-wrap">
-        <el-table v-loading="materialLoading" :data="materialRows" row-key="id" table-layout="fixed">
+        <el-table
+          v-loading="materialLoading"
+          :data="materialRows"
+          row-key="id"
+          table-layout="fixed"
+          empty-text="暂无可选物料"
+        >
           <el-table-column prop="code" label="物料编码" min-width="140" show-overflow-tooltip />
           <el-table-column prop="name" label="物料名称" min-width="160" show-overflow-tooltip />
           <el-table-column prop="specification" label="规格型号" min-width="160" show-overflow-tooltip />

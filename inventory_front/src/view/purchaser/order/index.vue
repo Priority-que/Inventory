@@ -181,6 +181,25 @@ const itemFormRules: FormRules<PurchaseOrderItemDTO> = {
   unitPrice: [{ required: true, message: '请输入单价', trigger: 'blur' }],
 }
 
+const orderEmptyText = computed(() => {
+  if (isSupplierRoute.value && query.status === 'WAIT_CONFIRM') {
+    return '暂无待确认订单'
+  }
+  if (query.status === 'WAIT_CONFIRM') {
+    return '暂无待供应商确认订单'
+  }
+  if (query.status === 'IN_PROGRESS') {
+    return '暂无执行中订单'
+  }
+  if (query.status === 'PARTIAL_ARRIVAL') {
+    return '暂无部分到货订单'
+  }
+  if (query.status === 'WAIT_INBOUND') {
+    return '暂无待入库订单'
+  }
+  return '暂无采购订单'
+})
+
 function syncPlanDateRange() {
   query.planDateBegin = planDateRange.value[0] || ''
   query.planDateEnd = planDateRange.value[1] || ''
@@ -219,6 +238,13 @@ function handleReset() {
   })
   planDateRange.value = []
   loadData()
+}
+
+function applyRouteQuery() {
+  const status = route.query.status
+  if (typeof status === 'string') {
+    query.status = status
+  }
 }
 
 function handleSupplierStatusChange() {
@@ -370,13 +396,13 @@ async function submitForm() {
           remark: item.remark,
         })),
       })
-      ElMessage.success('采购订单已新增')
+      ElMessage.success('采购订单已生成，等待供应商确认交期')
     } else {
       await updatePurchaseOrderApi({
         ...orderForm,
         items: undefined,
       })
-      ElMessage.success('采购订单已更新')
+      ElMessage.success('采购订单已更新，供应商确认前仍可调整')
     }
     dialogVisible.value = false
     loadData()
@@ -576,7 +602,7 @@ async function submitConfirmForm() {
       supplierDate: confirmForm.supplierDate,
       supplierNote: confirmForm.supplierNote,
     })
-    ElMessage.success('采购订单已确认')
+    ElMessage.success('采购订单已确认，订单进入执行中')
     confirmDialogVisible.value = false
     confirmOrder.value = null
     confirmItems.value = []
@@ -657,7 +683,10 @@ function handleCurrentChange(page: number) {
   loadData()
 }
 
-onMounted(loadData)
+onMounted(() => {
+  applyRouteQuery()
+  loadData()
+})
 </script>
 
 <template>
@@ -729,7 +758,7 @@ onMounted(loadData)
       </div>
 
       <div class="table-wrap">
-        <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed">
+        <el-table v-loading="loading" :data="tableData" row-key="id" table-layout="fixed" :empty-text="orderEmptyText">
           <el-table-column prop="orderNo" label="订单号" min-width="160" fixed="left" show-overflow-tooltip />
           <el-table-column prop="requestTitle" label="申请标题" min-width="180" show-overflow-tooltip />
           <el-table-column v-if="!isSupplierRoute" prop="supplierName" label="供应商名称" min-width="160" show-overflow-tooltip />
@@ -876,7 +905,12 @@ onMounted(loadData)
             </el-button>
           </div>
           <div class="table-wrap">
-            <el-table v-loading="requestItemsLoading" :data="requestItemRows" table-layout="fixed">
+            <el-table
+              v-loading="requestItemsLoading"
+              :data="requestItemRows"
+              table-layout="fixed"
+              empty-text="请先选择已审批采购申请并加载明细"
+            >
               <el-table-column prop="materialCode" label="物料编码" min-width="140" show-overflow-tooltip />
               <el-table-column prop="materialName" label="物料名称" min-width="160" show-overflow-tooltip />
               <el-table-column prop="specification" label="规格型号" min-width="150" show-overflow-tooltip />
@@ -921,7 +955,9 @@ onMounted(loadData)
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="formLoading" @click="submitForm">保存</el-button>
+          <el-button type="primary" :loading="formLoading" @click="submitForm">
+            {{ dialogMode === 'create' ? '生成采购订单' : '保存订单调整' }}
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -951,7 +987,13 @@ onMounted(loadData)
         </el-form>
       </div>
       <div class="table-wrap">
-        <el-table v-loading="requestLoading" :data="requestRows" row-key="id" table-layout="fixed">
+        <el-table
+          v-loading="requestLoading"
+          :data="requestRows"
+          row-key="id"
+          table-layout="fixed"
+          empty-text="暂无可生成订单的已审批采购申请"
+        >
           <el-table-column prop="requestNo" label="申请单号" min-width="160" show-overflow-tooltip />
           <el-table-column prop="title" label="申请标题" min-width="180" show-overflow-tooltip />
           <el-table-column prop="applicantName" label="申请人" min-width="120" show-overflow-tooltip />
@@ -1008,7 +1050,13 @@ onMounted(loadData)
         </el-form>
       </div>
       <div class="table-wrap">
-        <el-table v-loading="supplierLoading" :data="supplierRows" row-key="id" table-layout="fixed">
+        <el-table
+          v-loading="supplierLoading"
+          :data="supplierRows"
+          row-key="id"
+          table-layout="fixed"
+          empty-text="暂无可合作供应商"
+        >
           <el-table-column prop="code" label="供应商编码" min-width="140" show-overflow-tooltip />
           <el-table-column prop="name" label="供应商名称" min-width="180" show-overflow-tooltip />
           <el-table-column prop="contactName" label="联系人" min-width="120" show-overflow-tooltip />
@@ -1051,7 +1099,13 @@ onMounted(loadData)
 
       <div class="confirm-items">
         <div class="confirm-items__title">物料明细</div>
-        <el-table v-loading="confirmItemsLoading" :data="confirmItems" max-height="220" table-layout="fixed">
+        <el-table
+          v-loading="confirmItemsLoading"
+          :data="confirmItems"
+          max-height="220"
+          table-layout="fixed"
+          empty-text="暂无订单明细"
+        >
           <el-table-column prop="materialCode" label="物料编码" min-width="128" show-overflow-tooltip />
           <el-table-column prop="materialName" label="物料名称" min-width="150" show-overflow-tooltip />
           <el-table-column prop="specification" label="规格型号" min-width="140" show-overflow-tooltip />
@@ -1139,7 +1193,7 @@ onMounted(loadData)
                 </div>
               </div>
               <div class="table-wrap">
-                <el-table :data="detailItems" table-layout="fixed">
+                <el-table :data="detailItems" table-layout="fixed" empty-text="暂无订单明细">
                   <el-table-column prop="materialCode" label="物料编码" min-width="140" show-overflow-tooltip />
                   <el-table-column prop="materialName" label="物料名称" min-width="160" show-overflow-tooltip />
                   <el-table-column prop="specification" label="规格型号" min-width="150" show-overflow-tooltip />
@@ -1206,7 +1260,7 @@ onMounted(loadData)
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="itemDialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="itemFormLoading" @click="submitItemForm">保存</el-button>
+          <el-button type="primary" :loading="itemFormLoading" @click="submitItemForm">保存明细价格</el-button>
         </div>
       </template>
     </el-dialog>
